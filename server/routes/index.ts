@@ -8,16 +8,6 @@ export default defineEventHandler(async (event) => {
   const memoryUsage = process.memoryUsage();
   const startTime = Date.now() - process.uptime() * 1000;
 
-  // Check environment
-  const isServerless = !!(
-    process.env.AWS_LAMBDA_FUNCTION_NAME ||
-    process.env.VERCEL ||
-    process.env.NETLIFY ||
-    process.env.CF_PAGES ||
-    process.env.RAILWAY_ENVIRONMENT ||
-    process.env.RENDER_SERVICE_NAME
-  );
-
   // Get adaptive storage health
   const storageHealth = await isStorageHealthy();
 
@@ -38,7 +28,6 @@ export default defineEventHandler(async (event) => {
       platform: process.platform,
       arch: process.arch,
       environment: process.env.NODE_ENV || "development",
-      isServerless,
       memory: {
         rss: `${Math.round(memoryUsage.rss / 1024 / 1024)}MB`,
         heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)}MB`,
@@ -74,7 +63,7 @@ export default defineEventHandler(async (event) => {
       "🎨 Dynamic OG image generation",
       "🌐 Self-hosted Google Fonts replacement",
       "🖼️ IPX-compatible image proxy and optimization",
-      "🚀 Smart serverless environment detection",
+      "🚀 Platform compatibility validation",
       "💾 Multi-layer adaptive caching (Redis + FileSystem + Memory)",
       "🗄️ Adaptive database support (Turso/PostgreSQL/MySQL/SQLite)",
       "🔒 Flexible authentication with better-auth",
@@ -116,7 +105,7 @@ export default defineEventHandler(async (event) => {
       browser: {
         playwright: "Installed",
         config: process.env.PLAYWRIGHT_BROWSER_CONFIG || "auto",
-        serverlessMode: isServerless ? "Active" : "Disabled",
+        runtime: "Persistent Node.js Runtime",
       },
       auth: {
         github: process.env.GITHUB_CLIENT_ID ? "Configured" : "Not configured",

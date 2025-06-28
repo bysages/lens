@@ -18,7 +18,7 @@ A high-performance image proxy and web services toolkit built with modern TypeSc
 - **⚡ Multi-layer Caching**: Redis, file system, and cloud storage integration
 - **🏊‍♂️ Connection Pooling**: Optimized browser and database pools
 - **🛡️ Rate Limiting**: Unified rate limiting with plugin-level management
-- **☁️ Cloud Native**: Support for Vercel, Cloudflare, AWS, and other platforms
+- **☁️ Cloud Native**: Support for Railway, Zeabur, and other persistent runtime platforms
 - **🔄 Graceful Degradation**: Automatic fallbacks for missing services
 
 ## 📦 Quick Start
@@ -90,8 +90,10 @@ ALLOWED_DOMAINS=example.com,cdn.example.com
 REDIS_URL=redis://localhost:6379
 
 # Cloud storage (for production)
-VERCEL_BLOB_READ_WRITE_TOKEN=your-token
-CLOUDFLARE_R2_ACCOUNT_ID=your-account-id
+# Note: Vercel Blob and Cloudflare R2 are supported for storage only
+# but not for hosting due to serverless limitations
+# VERCEL_BLOB_READ_WRITE_TOKEN=your-token
+# CLOUDFLARE_R2_ACCOUNT_ID=your-account-id
 ```
 
 See `env.example` for all available options.
@@ -276,20 +278,40 @@ Lens is built with modern web standards and follows clean architecture principle
 
 Lens is built with Nitro, which supports multiple deployment targets. For comprehensive deployment options and platform-specific configurations, please refer to the official [Nitro Deployment Guide](https://nitro.build/deploy).
 
-Nitro provides zero-config deployment for many platforms including:
+**⚠️ Platform Compatibility Notice:**
 
-- Vercel
-- Cloudflare Workers/Pages
-- Netlify
-- AWS Lambda
-- Azure Functions
-- And many more
+This application requires a **persistent runtime environment** and **does not support serverless platforms** like:
+
+- ❌ Vercel (Functions)
+- ❌ Cloudflare Workers/Pages
+- ❌ Netlify Functions
+- ❌ AWS Lambda
+- ❌ Azure Functions
+
+**✅ Recommended platforms for persistent runtime:**
+
+- Traditional VPS/Dedicated servers
+- Docker containers
+- Platform.sh
+- Render.com
+- DigitalOcean App Platform
+- Heroku
+- Any platform with persistent Node.js runtime
+
+**Note:** While Railway and Zeabur may work with Nixpacks, they are not officially supported by Nitro. Use at your own discretion.
 
 ### Nixpacks Deployment
 
-This project includes a `nixpacks.toml` configuration for seamless deployment on platforms that support Nixpacks (like Railway, Zeabur, etc.).
+This project includes Nixpacks configuration for seamless deployment on platforms that support it. For comprehensive Nixpacks usage and platform-specific configurations, please refer to the [official Nixpacks documentation](https://nixpacks.com/docs/getting-started).
 
-The configuration includes:
+Nixpacks provides automatic deployment for platforms including:
+
+- Railway
+- Zeabur
+- Render.com
+- And other Nixpacks-compatible platforms
+
+The included `nixpacks.toml` configuration provides:
 
 - **System Dependencies**: vips, chromium, fontconfig for image processing and screenshot capabilities
 - **Build Tools**: python3, gcc, gnumake for native module compilation
@@ -317,6 +339,18 @@ cmds = ["pnpm build"]
 [start]
 cmd = "pnpm preview"
 ```
+
+### Why Not Serverless?
+
+This application requires features that are incompatible with serverless environments:
+
+1. **🏊‍♂️ Browser Pool Management**: Playwright browser instances need persistent memory and connection pooling
+2. **📦 Native Dependencies**: Sharp, better-sqlite3, and chromium require filesystem access and binary execution
+3. **🔄 Long-Running Processes**: Image processing and screenshot capture can exceed serverless timeout limits
+4. **💾 Persistent Storage**: Database connections and cache systems need persistent runtime
+5. **🎯 Connection Reuse**: Performance optimizations rely on keeping connections alive
+
+**Recommended Platforms**: Render.com, Platform.sh, DigitalOcean App Platform, Heroku, Traditional VPS
 
 ### Environment Variables
 

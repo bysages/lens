@@ -6,7 +6,6 @@ import {
   Page,
   BrowserContext,
 } from "playwright";
-import chromium from "@sparticuz/chromium";
 import { cacheStorage } from "./storage";
 import { pluginRateLimits } from "./rate-limits";
 
@@ -147,64 +146,11 @@ class OptimizedBrowserPool {
   }
 
   /**
-   * Detect if running in serverless environment
-   */
-  private detectServerlessEnvironment(): boolean {
-    // Allow manual override
-    if (process.env.FORCE_SERVERLESS === "true") return true;
-    if (process.env.FORCE_SERVERLESS === "false") return false;
-
-    // Common serverless environment indicators
-    const serverlessEnvVars = [
-      // AWS
-      "AWS_LAMBDA_FUNCTION_NAME",
-      "AWS_EXECUTION_ENV",
-
-      // Vercel
-      "VERCEL",
-      "VERCEL_ENV",
-
-      // Netlify
-      "NETLIFY",
-      "NETLIFY_BUILD_BASE",
-
-      // Cloudflare
-      "CF_PAGES",
-      "CF_PAGES_BRANCH",
-      "CLOUDFLARE_ENVIRONMENT",
-
-      // Railway
-      "RAILWAY_ENVIRONMENT",
-
-      // Render
-      "RENDER_SERVICE_NAME",
-
-      // Google Cloud
-      "K_SERVICE",
-      "FUNCTION_NAME",
-      "GOOGLE_CLOUD_PROJECT",
-
-      // Azure
-      "AZURE_FUNCTIONS_ENVIRONMENT",
-      "WEBSITE_SITE_NAME",
-
-      // DigitalOcean
-      "DO_FUNCTIONS",
-
-      // Heroku
-      "DYNO",
-    ];
-
-    return serverlessEnvVars.some((envVar) => process.env[envVar]);
-  }
-
-  /**
    * Create new browser with optimized settings
    */
   private async createBrowser(
     options: ScreenshotOptions,
   ): Promise<PooledBrowser> {
-    const isServerless = this.detectServerlessEnvironment();
     const isDevelopment =
       process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
 
@@ -214,54 +160,32 @@ class OptimizedBrowserPool {
     let browser: Browser;
 
     try {
-      if (isServerless && !isDevelopment) {
-        // Serverless environment: use @sparticuz/chromium
-        chromium.setGraphicsMode = false;
+      // Standard chromium with optimizations
+      const launchOptions: Parameters<typeof playwright.launch>[0] = {
+        headless: true,
+        args: [
+          "--no-sandbox",
+          "--disable-setuid-sandbox",
+          "--disable-dev-shm-usage",
+          "--disable-web-security",
+          "--disable-background-timer-throttling",
+          "--disable-backgrounding-occluded-windows",
+          "--disable-renderer-backgrounding",
+        ],
+      };
 
-        browser = await playwright.launch({
-          args: [
-            ...chromium.args,
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-web-security",
-            "--disable-background-timer-throttling",
-            "--disable-backgrounding-occluded-windows",
-            "--disable-renderer-backgrounding",
-            "--disable-features=VizDisplayCompositor",
-            "--memory-pressure-off",
-          ],
-          executablePath: await chromium.executablePath(),
-          headless: true,
-        });
-      } else {
-        // Local development: use optimized chromium
-        const launchOptions: Parameters<typeof playwright.launch>[0] = {
-          headless: true,
-          args: [
-            "--no-sandbox",
-            "--disable-setuid-sandbox",
-            "--disable-dev-shm-usage",
-            "--disable-web-security",
-            "--disable-background-timer-throttling",
-            "--disable-backgrounding-occluded-windows",
-            "--disable-renderer-backgrounding",
-          ],
-        };
-
-        // Try chromium-headless-shell first for better performance
-        if (browserConfig === "auto" || browserConfig === "headless-shell") {
-          try {
-            browser = await playwright.launch({
-              ...launchOptions,
-              channel: "chromium-headless-shell",
-            });
-          } catch {
-            browser = await playwright.launch(launchOptions);
-          }
-        } else {
+      // Try chromium-headless-shell first for better performance
+      if (browserConfig === "auto" || browserConfig === "headless-shell") {
+        try {
+          browser = await playwright.launch({
+            ...launchOptions,
+            channel: "chromium-headless-shell",
+          });
+        } catch {
           browser = await playwright.launch(launchOptions);
         }
+      } else {
+        browser = await playwright.launch(launchOptions);
       }
     } catch {
       // Fallback: try with minimal configuration
@@ -274,7 +198,7 @@ class OptimizedBrowserPool {
         const errorMessage = `Browser launch failed: ${fallbackError instanceof Error ? fallbackError.message : "Unknown error"}`;
         const installHint = isDevelopment
           ? "Please install Playwright browsers: npx playwright install chromium-headless-shell chromium"
-          : "Browser installation failed in serverless environment";
+          : "Browser installation failed in production environment";
 
         throw new Error(`${errorMessage}. ${installHint}`);
       }

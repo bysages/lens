@@ -5,8 +5,6 @@ import overlay from "unstorage/drivers/overlay";
 import memory from "unstorage/drivers/memory";
 import redisDriver from "unstorage/drivers/redis";
 import fsDriver from "unstorage/drivers/fs";
-import vercelBlobDriver from "unstorage/drivers/vercel-blob";
-import cloudflareR2BindingDriver from "unstorage/drivers/cloudflare-r2-binding";
 import s3Driver from "unstorage/drivers/s3";
 import Database from "better-sqlite3";
 
@@ -15,16 +13,10 @@ import Database from "better-sqlite3";
  */
 interface EnvironmentDetection {
   // Platform environment
-  isVercel: boolean;
-  isCloudflare: boolean;
-  isNetlify: boolean;
   isDevelopment: boolean;
-  isServerless: boolean;
 
   // Cache storage availability
   hasRedis: boolean;
-  hasVercelBlob: boolean;
-  hasCloudflareR2: boolean;
   hasMinIO: boolean;
 
   // Database availability
@@ -49,23 +41,11 @@ interface DatabaseConfig {
  */
 function detectEnvironment(): EnvironmentDetection {
   // Platform environment detection
-  const isVercel = !!process.env.VERCEL;
-  const isCloudflare = !!(
-    process.env.CF_PAGES || process.env.CLOUDFLARE_ENVIRONMENT
-  );
-  const isNetlify = !!process.env.NETLIFY;
   const isDevelopment =
     process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
-  const isServerless = isVercel || isCloudflare || isNetlify;
 
   // Cache storage availability detection
   const hasRedis = !!process.env.REDIS_URL;
-  const hasVercelBlob = !!(
-    process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_BLOB_TOKEN
-  );
-  const hasCloudflareR2 = !!(
-    process.env.CLOUDFLARE_R2_BINDING || process.env.LENS_R2_BUCKET
-  );
   const hasMinIO =
     !!(
       process.env.MINIO_ENDPOINT &&
@@ -94,14 +74,8 @@ function detectEnvironment(): EnvironmentDetection {
     process.env.DATABASE_URL.startsWith("sqlserver");
 
   return {
-    isVercel,
-    isCloudflare,
-    isNetlify,
     isDevelopment,
-    isServerless,
     hasRedis,
-    hasVercelBlob,
-    hasCloudflareR2,
     hasMinIO,
     hasTurso,
     hasPostgreSQL,
@@ -132,34 +106,6 @@ function createRedisDriver() {
   } catch {
     return null;
   }
-}
-
-/**
- * Create Vercel Blob driver configuration
- */
-function createVercelBlobDriver() {
-  const token =
-    process.env.BLOB_READ_WRITE_TOKEN || process.env.VERCEL_BLOB_TOKEN;
-  if (!token) return null;
-
-  return vercelBlobDriver({
-    access: "public", // Required for Vercel Blob
-    token: token,
-    base: "lens",
-  });
-}
-
-/**
- * Create Cloudflare R2 driver configuration
- */
-function createCloudflareR2Driver() {
-  const binding =
-    process.env.CLOUDFLARE_R2_BINDING || process.env.LENS_R2_BUCKET;
-  if (!binding) return null;
-
-  return cloudflareR2BindingDriver({
-    binding: binding,
-  });
 }
 
 /**
@@ -215,20 +161,6 @@ function createAdaptiveCacheStorage() {
     const redis = createRedisDriver();
     if (redis) {
       layers.push(redis);
-    }
-  }
-
-  if (env.hasVercelBlob) {
-    const vercelBlob = createVercelBlobDriver();
-    if (vercelBlob) {
-      layers.push(vercelBlob);
-    }
-  }
-
-  if (env.hasCloudflareR2) {
-    const cloudflareR2 = createCloudflareR2Driver();
-    if (cloudflareR2) {
-      layers.push(cloudflareR2);
     }
   }
 
