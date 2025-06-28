@@ -485,8 +485,6 @@ async function generateCSS(
         resolvedWeights = [...new Set(allResolvedWeights)];
       }
 
-      console.log(`Resolved weights for ${font.name}:`, resolvedWeights);
-
       const resolveOptions: Partial<ResolveFontOptions> = {
         weights: resolvedWeights,
         styles: font.styles,

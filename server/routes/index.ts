@@ -96,9 +96,7 @@ export default defineEventHandler(async (event) => {
             ? "PostgreSQL"
             : process.env.DATABASE_URL?.startsWith("mysql")
               ? "MySQL"
-              : process.env.DATABASE_URL?.startsWith("sqlserver")
-                ? "SQL Server"
-                : "SQLite (fallback)",
+              : "SQLite (fallback)",
         status: "Connected",
         features: ["Kysely ORM", "Auto-migration", "TypeScript support"],
       },

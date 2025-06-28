@@ -262,7 +262,7 @@ Lens is built with modern web standards and follows clean architecture principle
 - **Image Processing**: IPX with Sharp
 - **Browser Automation**: Playwright with pool management
 - **Caching**: Multi-layer with unstorage
-- **Database**: Adaptive with Kysely (SQLite/PostgreSQL/MySQL/SQL Server/Turso)
+- **Database**: Adaptive with Kysely (SQLite/PostgreSQL/MySQL/Turso)
 
 ### Design Principles
 

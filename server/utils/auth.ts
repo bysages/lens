@@ -1,7 +1,7 @@
 // Better Auth configuration with adaptive storage integration
 import { betterAuth } from "better-auth";
 import { openAPI, bearer, apiKey } from "better-auth/plugins";
-import { createSecondaryStorageAdapter, getAdaptiveDatabase } from "./storage";
+import { createSecondaryStorageAdapter, database } from "./storage";
 import { fontsPlugin } from "./fonts";
 import { ogPlugin } from "./og";
 import { faviconPlugin } from "./favicon";
@@ -27,7 +27,7 @@ function createSocialProviders() {
 }
 
 export const auth = betterAuth({
-  database: getAdaptiveDatabase(),
+  database,
   secondaryStorage: createSecondaryStorageAdapter(),
 
   emailAndPassword: {

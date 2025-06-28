@@ -7,89 +7,26 @@ import redisDriver from "unstorage/drivers/redis";
 import fsDriver from "unstorage/drivers/fs";
 import s3Driver from "unstorage/drivers/s3";
 import Database from "better-sqlite3";
+import { Pool } from "pg";
+import { createPool } from "mysql2";
+// Optional database imports - install as needed:
+// npm install @libsql/kysely-libsql (for Turso)
+import { LibsqlDialect } from "@libsql/kysely-libsql";
 
 /**
- * Environment detection result type
+ * Simple database detection
  */
-interface EnvironmentDetection {
-  // Platform environment
-  isDevelopment: boolean;
-
-  // Cache storage availability
-  hasRedis: boolean;
-  hasMinIO: boolean;
-
-  // Database availability
-  hasTurso: boolean;
-  hasPostgreSQL: boolean;
-  hasMySQL: boolean;
-  hasSQLServer: boolean;
+function detectDatabase() {
+  if (process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN)
+    return "turso";
+  if (process.env.DATABASE_URL?.startsWith("postgres")) return "postgres";
+  if (process.env.DATABASE_URL?.startsWith("mysql")) return "mysql";
+  if (process.env.DATABASE_URL?.startsWith("mariadb")) return "mysql";
+  return "sqlite";
 }
 
-/**
- * Database configuration type
- */
-interface DatabaseConfig {
-  type: "sqlite" | "postgres" | "mysql" | "mssql" | "turso";
-  connection: any;
-  dialect: string;
-}
-
-/**
- * Intelligent environment detection
- * Detects all available storage and database services
- */
-function detectEnvironment(): EnvironmentDetection {
-  // Platform environment detection
-  const isDevelopment =
-    process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
-
-  // Cache storage availability detection
-  const hasRedis = !!process.env.REDIS_URL;
-  const hasMinIO =
-    !!(
-      process.env.MINIO_ENDPOINT &&
-      process.env.MINIO_ACCESS_KEY &&
-      process.env.MINIO_SECRET_KEY
-    ) ||
-    !!(
-      process.env.S3_ENDPOINT &&
-      process.env.S3_ACCESS_KEY_ID &&
-      process.env.S3_SECRET_ACCESS_KEY
-    );
-
-  // Database availability detection
-  const hasTurso = !!(
-    process.env.TURSO_DATABASE_URL && process.env.TURSO_AUTH_TOKEN
-  );
-  const hasPostgreSQL =
-    !!process.env.DATABASE_URL &&
-    process.env.DATABASE_URL.startsWith("postgres");
-  const hasMySQL =
-    !!process.env.DATABASE_URL &&
-    (process.env.DATABASE_URL.startsWith("mysql") ||
-      process.env.DATABASE_URL.startsWith("mariadb"));
-  const hasSQLServer =
-    !!process.env.DATABASE_URL &&
-    process.env.DATABASE_URL.startsWith("sqlserver");
-
-  return {
-    isDevelopment,
-    hasRedis,
-    hasMinIO,
-    hasTurso,
-    hasPostgreSQL,
-    hasMySQL,
-    hasSQLServer,
-  };
-}
-
-/**
- * Create Redis driver configuration
- */
 function createRedisDriver() {
   if (!process.env.REDIS_URL) return null;
-
   try {
     const url = new URL(process.env.REDIS_URL);
     return redisDriver({
@@ -97,22 +34,14 @@ function createRedisDriver() {
       host: url.hostname,
       port: parseInt(url.port) || 6379,
       password: url.password || undefined,
-      ...(url.protocol === "rediss:" && {
-        tls: {
-          rejectUnauthorized: false,
-        },
-      }),
+      ...(url.protocol === "rediss:" && { tls: { rejectUnauthorized: false } }),
     });
   } catch {
     return null;
   }
 }
 
-/**
- * Create MinIO/S3 driver configuration
- */
 function createMinIODriver() {
-  // Prefer MinIO configuration
   if (
     process.env.MINIO_ENDPOINT &&
     process.env.MINIO_ACCESS_KEY &&
@@ -126,8 +55,6 @@ function createMinIODriver() {
       region: process.env.MINIO_REGION || "us-east-1",
     });
   }
-
-  // Use S3 configuration
   if (
     process.env.S3_ENDPOINT &&
     process.env.S3_ACCESS_KEY_ID &&
@@ -141,103 +68,62 @@ function createMinIODriver() {
       region: process.env.S3_REGION || "us-east-1",
     });
   }
-
   return null;
 }
 
 /**
- * Create adaptive cache storage
- * Intelligently selects optimal storage driver combination based on environment variables
+ * Create cache storage
  */
-function createAdaptiveCacheStorage() {
-  const env = detectEnvironment();
-  const layers: any[] = [];
+function createCacheStorage() {
+  const layers: any[] = [memory()];
 
-  // Always add memory layer as fastest cache
-  layers.push(memory());
-
-  // Add persistence layers by priority
-  if (env.hasRedis) {
+  // Add Redis if available
+  if (process.env.REDIS_URL) {
     const redis = createRedisDriver();
-    if (redis) {
-      layers.push(redis);
-    }
+    if (redis) layers.push(redis);
   }
 
-  if (env.hasMinIO) {
-    const minio = createMinIODriver();
-    if (minio) {
-      layers.push(minio);
-    }
-  }
+  // Add MinIO/S3 if available
+  const minio = createMinIODriver();
+  if (minio) layers.push(minio);
 
-  // Finally add filesystem as basic fallback
+  // Filesystem fallback
   layers.push(fsDriver({ base: "./.cache" }));
 
-  return createStorage({
-    driver: overlay({ layers }),
-  });
+  return createStorage({ driver: overlay({ layers }) });
 }
 
 /**
- * Create adaptive database configuration
- * Intelligently selects optimal database based on environment variables
- * Only supports databases with built-in Kysely adapter in better-auth
+ * Get database for better-auth
  */
-function createAdaptiveDatabaseConfig(): DatabaseConfig {
-  const env = detectEnvironment();
+function getDatabase() {
+  const dbType = detectDatabase();
 
-  // 1. Turso (distributed SQLite) - optimal choice
-  if (env.hasTurso) {
-    return {
-      type: "turso",
-      connection: {
-        url: process.env.TURSO_DATABASE_URL,
-        authToken: process.env.TURSO_AUTH_TOKEN,
-      },
-      dialect: "turso",
-    };
+  switch (dbType) {
+    case "turso":
+      return {
+        dialect: new LibsqlDialect({
+          url: process.env.TURSO_DATABASE_URL || "",
+          authToken: process.env.TURSO_AUTH_TOKEN || "",
+        }),
+        type: "sqlite" as const,
+      };
+
+    case "postgres":
+      return new Pool({ connectionString: process.env.DATABASE_URL });
+
+    case "mysql":
+      return createPool(process.env.DATABASE_URL);
+
+    default:
+      return new Database(".database.sqlite");
   }
-
-  // 2. PostgreSQL - production-grade choice
-  if (env.hasPostgreSQL) {
-    return {
-      type: "postgres",
-      connection: process.env.DATABASE_URL,
-      dialect: "postgres",
-    };
-  }
-
-  // 3. MySQL/MariaDB - traditional choice
-  if (env.hasMySQL) {
-    return {
-      type: "mysql",
-      connection: process.env.DATABASE_URL,
-      dialect: "mysql",
-    };
-  }
-
-  // 4. SQL Server - enterprise choice
-  if (env.hasSQLServer) {
-    return {
-      type: "mssql",
-      connection: process.env.DATABASE_URL,
-      dialect: "mssql",
-    };
-  }
-
-  // 5. SQLite - default fallback choice
-  return {
-    type: "sqlite",
-    connection: new Database(".database.sqlite"),
-    dialect: "sqlite",
-  };
 }
 
 /**
  * Global storage instance
  */
-export const storage = createAdaptiveCacheStorage();
+export const storage = createCacheStorage();
 
 /**
  * SecondaryStorage adapter for better-auth
@@ -246,8 +132,21 @@ export function createSecondaryStorageAdapter(): SecondaryStorage {
   return {
     async get(key: string): Promise<string | null> {
       try {
-        const value = await storage.getItem<string>(`auth:${key}`);
-        return value || null;
+        // Use getItemRaw to ensure we get the raw string data
+        // better-auth expects JSON string, not parsed object
+        const value = await storage.getItemRaw(`auth:${key}`);
+        if (value === null || value === undefined) {
+          return null;
+        }
+        // Ensure we return a string
+        if (Buffer.isBuffer(value)) {
+          return value.toString("utf-8");
+        }
+        if (typeof value === "string") {
+          return value;
+        }
+        // If it's an object, stringify it
+        return JSON.stringify(value);
       } catch {
         return null;
       }
@@ -255,10 +154,12 @@ export function createSecondaryStorageAdapter(): SecondaryStorage {
 
     async set(key: string, value: string, ttl?: number): Promise<void> {
       try {
+        // Use setItemRaw to store the raw string data
+        // This prevents unstorage from auto-parsing/serializing
         if (ttl) {
-          await storage.setItem(`auth:${key}`, value, { ttl });
+          await storage.setItemRaw(`auth:${key}`, value, { ttl });
         } else {
-          await storage.setItem(`auth:${key}`, value);
+          await storage.setItemRaw(`auth:${key}`, value);
         }
       } catch {
         // Silent failure - graceful degradation
@@ -278,9 +179,7 @@ export function createSecondaryStorageAdapter(): SecondaryStorage {
 /**
  * Database instance for better-auth
  */
-export function getAdaptiveDatabase() {
-  return createAdaptiveDatabaseConfig().connection;
-}
+export const database = getDatabase();
 
 /**
  * Direct storage tool functions

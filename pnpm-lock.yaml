@@ -9,10 +9,13 @@ importers:
     devDependencies:
       "@better-auth/cli":
         specifier: 1.2.10
-        version: 1.2.10(@types/pg@8.15.4)(@types/react@19.1.8)(kysely@0.28.2)(magicast@0.3.5)(mysql2@3.14.1)(pg@8.16.3)(react@19.1.0)
+        version: 1.2.10(@libsql/client@0.8.1)(@types/pg@8.15.4)(@types/react@19.1.8)(kysely@0.28.2)(magicast@0.3.5)(mysql2@3.14.1)(pg@8.16.3)(react@19.1.0)
       "@funish/basis":
         specifier: 0.0.5
         version: 0.0.5
+      "@libsql/kysely-libsql":
+        specifier: ^0.4.1
+        version: 0.4.1(kysely@0.28.2)
       "@prettier/plugin-oxc":
         specifier: 0.0.4
         version: 0.0.4
@@ -45,13 +48,13 @@ importers:
         version: 5.6.1
       ipx:
         specifier: 3.0.3
-        version: 3.0.3(@azure/identity@4.10.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(db0@0.3.2(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1))(ioredis@5.6.1)
+        version: 3.0.3(@azure/identity@4.10.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(db0@0.3.2(@libsql/client@0.8.1)(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1))(ioredis@5.6.1)
       mysql2:
         specifier: 3.14.1
         version: 3.14.1
       nitropack:
         specifier: 2.11.13
-        version: 2.11.13(@azure/identity@4.10.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1)
+        version: 2.11.13(@azure/identity@4.10.1)(@libsql/client@0.8.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1)
       oxlint:
         specifier: 1.3.0
         version: 1.3.0
@@ -67,12 +70,6 @@ importers:
       sharp:
         specifier: 0.34.2
         version: 0.34.2
-      tarn:
-        specifier: 3.0.2
-        version: 3.0.2
-      tedious:
-        specifier: 18.6.1
-        version: 18.6.1
       unifont:
         specifier: 0.5.2
         version: 0.5.2
@@ -84,13 +81,6 @@ packages:
         integrity: sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw==,
       }
     engines: { node: ">=6.0.0" }
-
-  "@azure-rest/core-client@2.4.0":
-    resolution:
-      {
-        integrity: sha512-CjMFBcmnt0YNdRcxSSoZbtZNXudLlicdml7UrPsV03nHiWB+Bq5cu5ctieyaCuRtU7jm7+SOFtiE/g4pBFPKKA==,
-      }
-    engines: { node: ">=18.0.0" }
 
   "@azure/abort-controller@2.1.2":
     resolution:
@@ -110,27 +100,6 @@ packages:
     resolution:
       {
         integrity: sha512-f7IxTD15Qdux30s2qFARH+JxgwxWLG2Rlr4oSkPGuLWm+1p5y1+C04XGLA0vmX6EtqfutmjvpNmAfgwVIS5hpw==,
-      }
-    engines: { node: ">=18.0.0" }
-
-  "@azure/core-http-compat@2.3.0":
-    resolution:
-      {
-        integrity: sha512-qLQujmUypBBG0gxHd0j6/Jdmul6ttl24c8WGiLXIk7IHXdBlfoBqW27hyz3Xn6xbfdyVSarl1Ttbk0AwnZBYCw==,
-      }
-    engines: { node: ">=18.0.0" }
-
-  "@azure/core-lro@2.7.2":
-    resolution:
-      {
-        integrity: sha512-0YIpccoX8m/k00O7mDDMdJpbr6mf1yWo2dfmxt5A8XVZVVMz2SSKaEbMCeJRvgQ0IaSlqhjT47p4hVIRRy90xw==,
-      }
-    engines: { node: ">=18.0.0" }
-
-  "@azure/core-paging@1.6.2":
-    resolution:
-      {
-        integrity: sha512-YKWi9YuCU04B55h25cnOYZHxXYtEvQEbKST5vqRga7hWY9ydd3FZHdeQF8pyh+acWZvppw13M/LMGx0LABUVMA==,
       }
     engines: { node: ">=18.0.0" }
 
@@ -159,20 +128,6 @@ packages:
     resolution:
       {
         integrity: sha512-YM/z6RxRtFlXUH2egAYF/FDPes+MUE6ZoknjEdaq7ebJMMNUzn9zCJ3bd2ZZZlkP0r1xKa88kolhFH/FGV7JnA==,
-      }
-    engines: { node: ">=18.0.0" }
-
-  "@azure/keyvault-common@2.0.0":
-    resolution:
-      {
-        integrity: sha512-wRLVaroQtOqfg60cxkzUkGKrKMsCP6uYXAOomOIysSMyt1/YM0eUn9LqieAWM8DLcU4+07Fio2YGpPeqUbpP9w==,
-      }
-    engines: { node: ">=18.0.0" }
-
-  "@azure/keyvault-keys@4.10.0":
-    resolution:
-      {
-        integrity: sha512-eDT7iXoBTRZ2n3fLiftuGJFD+yjkiB1GNqzU2KbY1TLYeXeSPVTVgn2eJ5vmRTZ11978jy2Kg2wI7xa9Tyr8ag==,
       }
     engines: { node: ">=18.0.0" }
 
@@ -1219,17 +1174,106 @@ packages:
         integrity: sha512-vNk6aEwybGtawWmy/PzwnGDOjCkLWSD2wqvjGGAgOAwCGWySYXfYoxt00IJkTF+8Lb57DwOb3Aa0o9CApepiYQ==,
       }
 
-  "@js-joda/core@5.6.5":
-    resolution:
-      {
-        integrity: sha512-3zwefSMwHpu8iVUW8YYz227sIv6UFqO31p1Bf1ZH/Vom7CmNyUsXjDBlnNzcuhmOL1XfxZ3nvND42kR23XlbcQ==,
-      }
-
   "@levischuck/tiny-cbor@0.2.11":
     resolution:
       {
         integrity: sha512-llBRm4dT4Z89aRsm6u2oEZ8tfwL/2l6BwpZ7JcyieouniDECM5AqNgr/y08zalEIvW3RSK4upYyybDcmjXqAow==,
       }
+
+  "@libsql/client@0.8.1":
+    resolution:
+      {
+        integrity: sha512-xGg0F4iTDFpeBZ0r4pA6icGsYa5rG6RAG+i/iLDnpCAnSuTqEWMDdPlVseiq4Z/91lWI9jvvKKiKpovqJ1kZWA==,
+      }
+
+  "@libsql/core@0.8.1":
+    resolution:
+      {
+        integrity: sha512-u6nrj6HZMTPsgJ9EBhLzO2uhqhlHQJQmVHV+0yFLvfGf3oSP8w7TjZCNUgu1G8jHISx6KFi7bmcrdXW9lRt++A==,
+      }
+
+  "@libsql/darwin-arm64@0.3.19":
+    resolution:
+      {
+        integrity: sha512-rmOqsLcDI65zzxlUOoEiPJLhqmbFsZF6p4UJQ2kMqB+Kc0Rt5/A1OAdOZ/Wo8fQfJWjR1IbkbpEINFioyKf+nQ==,
+      }
+    cpu: [arm64]
+    os: [darwin]
+
+  "@libsql/darwin-x64@0.3.19":
+    resolution:
+      {
+        integrity: sha512-q9O55B646zU+644SMmOQL3FIfpmEvdWpRpzubwFc2trsa+zoBlSkHuzU9v/C+UNoPHQVRMP7KQctJ455I/h/xw==,
+      }
+    cpu: [x64]
+    os: [darwin]
+
+  "@libsql/hrana-client@0.6.2":
+    resolution:
+      {
+        integrity: sha512-MWxgD7mXLNf9FXXiM0bc90wCjZSpErWKr5mGza7ERy2FJNNMXd7JIOv+DepBA1FQTIfI8TFO4/QDYgaQC0goNw==,
+      }
+
+  "@libsql/isomorphic-fetch@0.2.5":
+    resolution:
+      {
+        integrity: sha512-8s/B2TClEHms2yb+JGpsVRTPBfy1ih/Pq6h6gvyaNcYnMVJvgQRY7wAa8U2nD0dppbCuDU5evTNMEhrQ17ZKKg==,
+      }
+    engines: { node: ">=18.0.0" }
+
+  "@libsql/isomorphic-ws@0.1.5":
+    resolution:
+      {
+        integrity: sha512-DtLWIH29onUYR00i0GlQ3UdcTRC6EP4u9w/h9LxpUZJWRMARk6dQwZ6Jkd+QdwVpuAOrdxt18v0K2uIYR3fwFg==,
+      }
+
+  "@libsql/kysely-libsql@0.4.1":
+    resolution:
+      {
+        integrity: sha512-mCTa6OWgoME8LNu22COM6XjKBmcMAvNtIO6DYM10jSAFq779fVlrTKQEmXIB8TwJVU65dA5jGCpT8gkDdWS0HQ==,
+      }
+    peerDependencies:
+      kysely: "*"
+
+  "@libsql/linux-arm64-gnu@0.3.19":
+    resolution:
+      {
+        integrity: sha512-mgeAUU1oqqh57k7I3cQyU6Trpdsdt607eFyEmH5QO7dv303ti+LjUvh1pp21QWV6WX7wZyjeJV1/VzEImB+jRg==,
+      }
+    cpu: [arm64]
+    os: [linux]
+
+  "@libsql/linux-arm64-musl@0.3.19":
+    resolution:
+      {
+        integrity: sha512-VEZtxghyK6zwGzU9PHohvNxthruSxBEnRrX7BSL5jQ62tN4n2JNepJ6SdzXp70pdzTfwroOj/eMwiPt94gkVRg==,
+      }
+    cpu: [arm64]
+    os: [linux]
+
+  "@libsql/linux-x64-gnu@0.3.19":
+    resolution:
+      {
+        integrity: sha512-2t/J7LD5w2f63wGihEO+0GxfTyYIyLGEvTFEsMO16XI5o7IS9vcSHrxsvAJs4w2Pf907uDjmc7fUfMg6L82BrQ==,
+      }
+    cpu: [x64]
+    os: [linux]
+
+  "@libsql/linux-x64-musl@0.3.19":
+    resolution:
+      {
+        integrity: sha512-BLsXyJaL8gZD8+3W2LU08lDEd9MIgGds0yPy5iNPp8tfhXx3pV/Fge2GErN0FC+nzt4DYQtjL+A9GUMglQefXQ==,
+      }
+    cpu: [x64]
+    os: [linux]
+
+  "@libsql/win32-x64-msvc@0.3.19":
+    resolution:
+      {
+        integrity: sha512-ay1X9AobE4BpzG0XPw1gplyLZPGHIgJOovvW23gUrukRegiUP62uzhpRbKNogLlUOynyXeq//prHgPXiebUfWg==,
+      }
+    cpu: [x64]
+    os: [win32]
 
   "@mapbox/node-pre-gyp@2.0.0":
     resolution:
@@ -1250,6 +1294,12 @@ packages:
     resolution:
       {
         integrity: sha512-9DPkXtvHydrcOsopiYpUgPHpmj0HWZKMUnL2dZqpvC42lsratuBG06V5ipyno0fUek5VlFsNQ+AcFATSrJXgMA==,
+      }
+
+  "@neon-rs/load@0.0.4":
+    resolution:
+      {
+        integrity: sha512-kTPhdZyTQxB+2wpiRcFWrDcejc4JI6tkPuS7UZCG4l6Zvc5kU/gGQ/ozvHTh1XR5tS+UlfAfGuPajjzQjCiHCw==,
       }
 
   "@netlify/binary-info@1.0.0":
@@ -2151,12 +2201,6 @@ packages:
         integrity: sha512-AwAfQ2Wa5bCx9WP8nZL2uMZWod7J7/JSplxbTmBQ5ms6QpqNYm672H0Vu9ZVKVngQ+ii4R/byguVEUZQyeg44g==,
       }
 
-  "@types/readable-stream@4.0.21":
-    resolution:
-      {
-        integrity: sha512-19eKVv9tugr03IgfXlA9UVUVRbW6IuqRO5B92Dl4a6pT7K8uaGrNS0GkxiZD0BOk6PLuXl5FhWl//eX/pzYdTQ==,
-      }
-
   "@types/resolve@1.20.2":
     resolution:
       {
@@ -2167,6 +2211,12 @@ packages:
     resolution:
       {
         integrity: sha512-6WaYesThRMCl19iryMYP7/x2OVgCtbIVflDGFpWnb9irXI3UjYE4AzmYuiUKY1AJstGijoY+MgUszMgRxIYTYw==,
+      }
+
+  "@types/ws@8.18.1":
+    resolution:
+      {
+        integrity: sha512-ThVF6DCVhA8kUGy+aazFQ4kXQ7E1Ty7A3ypFOe0IcJV8O/M511G99AW24irKrW56Wt44yG9+ij8FaqoBGkuBXg==,
       }
 
   "@types/yauzl@2.10.3":
@@ -2507,12 +2557,6 @@ packages:
     resolution:
       {
         integrity: sha512-1W07cM9gS6DcLperZfFSj+bWLtaPGSOHWhPiGzXmvVJbRLdG82sH/Kn8EtW1VqWVA54AKf2h5k5BbnIbwF3h6w==,
-      }
-
-  bl@6.1.0:
-    resolution:
-      {
-        integrity: sha512-ClDyJGQkc8ZtzdAAbAwBmhMSpwN/sC9HA8jxdYm6nVUbCfZbe2mgza4qh7AuEYyEPB/c4Kznf9s66bnsKMQDjw==,
       }
 
   boolbase@1.0.0:
@@ -3153,6 +3197,13 @@ packages:
       }
     engines: { node: ">=0.10" }
     hasBin: true
+
+  detect-libc@2.0.2:
+    resolution:
+      {
+        integrity: sha512-UX6sGumvvqSaXgdKGUsgZWqcUyIXZ/vZTrlRT/iobiKhGL0zL4d3osHj3uqllWJK+i+sixDS/3COVEOFbupFyw==,
+      }
+    engines: { node: ">=8" }
 
   detect-libc@2.0.4:
     resolution:
@@ -4292,10 +4343,10 @@ packages:
         integrity: sha512-s+3Al/p9g32Iq+oqXxkW//7jk2Vig6FF1CFqzVXoTUXt2qz89YWbL+OwS17NFYEvxC35n0FKeGO2LGYSxeM2Gg==,
       }
 
-  js-md4@0.3.2:
+  js-base64@3.7.7:
     resolution:
       {
-        integrity: sha512-/GDnfQYsltsjRswQhN9fhv3EMw2sCpUdrdxyWDOUK7eyD++r3gRhzgiQgc/x4MAv2i1iuQ4lxO5mvqM3vj4bwA==,
+        integrity: sha512-7rCnleh0z2CkXhH67J8K1Ytz0b2Y+yxTPL+/KOJoa20hfnVQ/3/T6W/KflYI4bRHRagNeXeU2bkNGI3v1oS/lw==,
       }
 
   js-tokens@4.0.0:
@@ -4419,6 +4470,14 @@ packages:
         integrity: sha512-b94GiNHQNy6JNTrt5w6zNyffMrNkXZb3KTkCZJb2V1xaEGCk093vkZ2jk3tpaeP33/OiXC+WvK9AxUebnf5nbw==,
       }
     engines: { node: ">= 0.6.3" }
+
+  libsql@0.3.19:
+    resolution:
+      {
+        integrity: sha512-Aj5cQ5uk/6fHdmeW0TiXK42FqUlwx7ytmMLPSaUQPin5HKKKuUPD62MAbN4OEweGBBI7q1BekoEN4gPUEL6MZA==,
+      }
+    cpu: [x64, arm64, wasm32]
+    os: [darwin, linux, win32]
 
   lilconfig@2.1.0:
     resolution:
@@ -4816,12 +4875,6 @@ packages:
     resolution:
       {
         integrity: sha512-GEbrYkbfF7MoNaoh2iGG84Mnf/WZfB0GdGEsM8wz7Expx/LlWf5U8t9nvJKXSp3qr5IsEbK04cBGhol/KwOsWA==,
-      }
-
-  native-duplexpair@1.0.0:
-    resolution:
-      {
-        integrity: sha512-E7QQoM+3jvNtlmyfqRZ0/U75VFgCls+fSkbml2MpgWkWyz3ox8Y58gNhfuziuQYGNNQAbFZJQck55LHCnCK6CA==,
       }
 
   netlify@13.3.5:
@@ -5440,6 +5493,12 @@ packages:
       }
     engines: { node: ">= 0.6.0" }
 
+  promise-limit@2.7.0:
+    resolution:
+      {
+        integrity: sha512-7nJ6v5lnJsXwGprnGXga4wx6d1POjvi5Qmf1ivTRxTjH4Z/9Czja/UCMLVmB9N93GeWOU93XaFaEt6jbuoagNw==,
+      }
+
   prompts@2.4.2:
     resolution:
       {
@@ -5956,12 +6015,6 @@ packages:
       }
     engines: { node: ">= 10.x" }
 
-  sprintf-js@1.1.3:
-    resolution:
-      {
-        integrity: sha512-Oo+0REFV59/rz3gfJNKQiBlwfHaSESl1pcGyABQsnnIfWOFt6JNj5gCog2U6MLZ//IGYD+nA8nI+mTShREReaA==,
-      }
-
   sqlstring@2.3.3:
     resolution:
       {
@@ -6132,20 +6185,6 @@ packages:
     resolution:
       {
         integrity: sha512-5S7Va8hKfV7W5U6g3aYxXmlPoZVAwUMy9AOKyF2fVuZa2UD3qZjg578OrLRt8PcNN1PleVaL/5/yYATNL0ICUw==,
-      }
-    engines: { node: ">=18" }
-
-  tarn@3.0.2:
-    resolution:
-      {
-        integrity: sha512-51LAVKUSZSVfI05vjPESNc5vwqqZpbXCsU+/+wxlOrUjk2SnFTt97v9ZgQrD4YmxYW1Px6w2KjaDitCfkvgxMQ==,
-      }
-    engines: { node: ">=8.0.0" }
-
-  tedious@18.6.1:
-    resolution:
-      {
-        integrity: sha512-9AvErXXQTd6l7TDd5EmM+nxbOGyhnmdbp/8c3pw+tjaiSXW9usME90ET/CRG1LN1Y9tPMtz/p83z4Q97B4DDpw==,
       }
     engines: { node: ">=18" }
 
@@ -6625,6 +6664,21 @@ packages:
       }
     engines: { node: ^18.17.0 || >=20.5.0 }
 
+  ws@8.18.3:
+    resolution:
+      {
+        integrity: sha512-PEIGCY5tSlUt50cqyMXfCzX+oOPqN0vuGqWzbcJ2xvnkzkq46oOpz7dQaTDBdfICb4N14+GARUDw2XV2N4tvzg==,
+      }
+    engines: { node: ">=10.0.0" }
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: ">=5.0.2"
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+
   xss@1.0.15:
     resolution:
       {
@@ -6746,20 +6800,10 @@ snapshots:
       "@jridgewell/gen-mapping": 0.3.8
       "@jridgewell/trace-mapping": 0.3.25
 
-  "@azure-rest/core-client@2.4.0":
-    dependencies:
-      "@azure/abort-controller": 2.1.2
-      "@azure/core-auth": 1.9.0
-      "@azure/core-rest-pipeline": 1.21.0
-      "@azure/core-tracing": 1.2.0
-      "@typespec/ts-http-runtime": 0.2.3
-      tslib: 2.8.1
-    transitivePeerDependencies:
-      - supports-color
-
   "@azure/abort-controller@2.1.2":
     dependencies:
       tslib: 2.8.1
+    optional: true
 
   "@azure/core-auth@1.9.0":
     dependencies:
@@ -6768,6 +6812,7 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   "@azure/core-client@1.9.4":
     dependencies:
@@ -6780,27 +6825,7 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
-
-  "@azure/core-http-compat@2.3.0":
-    dependencies:
-      "@azure/abort-controller": 2.1.2
-      "@azure/core-client": 1.9.4
-      "@azure/core-rest-pipeline": 1.21.0
-    transitivePeerDependencies:
-      - supports-color
-
-  "@azure/core-lro@2.7.2":
-    dependencies:
-      "@azure/abort-controller": 2.1.2
-      "@azure/core-util": 1.12.0
-      "@azure/logger": 1.2.0
-      tslib: 2.8.1
-    transitivePeerDependencies:
-      - supports-color
-
-  "@azure/core-paging@1.6.2":
-    dependencies:
-      tslib: 2.8.1
+    optional: true
 
   "@azure/core-rest-pipeline@1.21.0":
     dependencies:
@@ -6813,10 +6838,12 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   "@azure/core-tracing@1.2.0":
     dependencies:
       tslib: 2.8.1
+    optional: true
 
   "@azure/core-util@1.12.0":
     dependencies:
@@ -6825,6 +6852,7 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   "@azure/identity@4.10.1":
     dependencies:
@@ -6841,36 +6869,7 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
-
-  "@azure/keyvault-common@2.0.0":
-    dependencies:
-      "@azure/abort-controller": 2.1.2
-      "@azure/core-auth": 1.9.0
-      "@azure/core-client": 1.9.4
-      "@azure/core-rest-pipeline": 1.21.0
-      "@azure/core-tracing": 1.2.0
-      "@azure/core-util": 1.12.0
-      "@azure/logger": 1.2.0
-      tslib: 2.8.1
-    transitivePeerDependencies:
-      - supports-color
-
-  "@azure/keyvault-keys@4.10.0":
-    dependencies:
-      "@azure-rest/core-client": 2.4.0
-      "@azure/abort-controller": 2.1.2
-      "@azure/core-auth": 1.9.0
-      "@azure/core-http-compat": 2.3.0
-      "@azure/core-lro": 2.7.2
-      "@azure/core-paging": 1.6.2
-      "@azure/core-rest-pipeline": 1.21.0
-      "@azure/core-tracing": 1.2.0
-      "@azure/core-util": 1.12.0
-      "@azure/keyvault-common": 2.0.0
-      "@azure/logger": 1.2.0
-      tslib: 2.8.1
-    transitivePeerDependencies:
-      - supports-color
+    optional: true
 
   "@azure/logger@1.2.0":
     dependencies:
@@ -6878,18 +6877,22 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   "@azure/msal-browser@4.13.2":
     dependencies:
       "@azure/msal-common": 15.7.1
+    optional: true
 
-  "@azure/msal-common@15.7.1": {}
+  "@azure/msal-common@15.7.1":
+    optional: true
 
   "@azure/msal-node@3.6.1":
     dependencies:
       "@azure/msal-common": 15.7.1
       jsonwebtoken: 9.0.2
       uuid: 8.3.2
+    optional: true
 
   "@babel/code-frame@7.27.1":
     dependencies:
@@ -7121,7 +7124,7 @@ snapshots:
       "@babel/helper-string-parser": 7.27.1
       "@babel/helper-validator-identifier": 7.27.1
 
-  "@better-auth/cli@1.2.10(@types/pg@8.15.4)(@types/react@19.1.8)(kysely@0.28.2)(magicast@0.3.5)(mysql2@3.14.1)(pg@8.16.3)(react@19.1.0)":
+  "@better-auth/cli@1.2.10(@libsql/client@0.8.1)(@types/pg@8.15.4)(@types/react@19.1.8)(kysely@0.28.2)(magicast@0.3.5)(mysql2@3.14.1)(pg@8.16.3)(react@19.1.0)":
     dependencies:
       "@babel/core": 7.27.7
       "@babel/preset-react": 7.27.1(@babel/core@7.27.7)
@@ -7137,7 +7140,7 @@ snapshots:
       chalk: 5.4.1
       commander: 12.1.0
       dotenv: 16.6.0
-      drizzle-orm: 0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@11.10.0)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0)
+      drizzle-orm: 0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@11.10.0)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0)
       fs-extra: 11.3.0
       get-tsconfig: 4.10.1
       prettier: 3.6.2
@@ -7533,9 +7536,71 @@ snapshots:
       "@jridgewell/resolve-uri": 3.1.2
       "@jridgewell/sourcemap-codec": 1.5.0
 
-  "@js-joda/core@5.6.5": {}
-
   "@levischuck/tiny-cbor@0.2.11": {}
+
+  "@libsql/client@0.8.1":
+    dependencies:
+      "@libsql/core": 0.8.1
+      "@libsql/hrana-client": 0.6.2
+      js-base64: 3.7.7
+      libsql: 0.3.19
+      promise-limit: 2.7.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  "@libsql/core@0.8.1":
+    dependencies:
+      js-base64: 3.7.7
+
+  "@libsql/darwin-arm64@0.3.19":
+    optional: true
+
+  "@libsql/darwin-x64@0.3.19":
+    optional: true
+
+  "@libsql/hrana-client@0.6.2":
+    dependencies:
+      "@libsql/isomorphic-fetch": 0.2.5
+      "@libsql/isomorphic-ws": 0.1.5
+      js-base64: 3.7.7
+      node-fetch: 3.3.2
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  "@libsql/isomorphic-fetch@0.2.5": {}
+
+  "@libsql/isomorphic-ws@0.1.5":
+    dependencies:
+      "@types/ws": 8.18.1
+      ws: 8.18.3
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  "@libsql/kysely-libsql@0.4.1(kysely@0.28.2)":
+    dependencies:
+      "@libsql/client": 0.8.1
+      kysely: 0.28.2
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+
+  "@libsql/linux-arm64-gnu@0.3.19":
+    optional: true
+
+  "@libsql/linux-arm64-musl@0.3.19":
+    optional: true
+
+  "@libsql/linux-x64-gnu@0.3.19":
+    optional: true
+
+  "@libsql/linux-x64-musl@0.3.19":
+    optional: true
+
+  "@libsql/win32-x64-msvc@0.3.19":
+    optional: true
 
   "@mapbox/node-pre-gyp@2.0.0":
     dependencies:
@@ -7561,6 +7626,8 @@ snapshots:
       "@emnapi/runtime": 1.4.3
       "@tybys/wasm-util": 0.9.0
     optional: true
+
+  "@neon-rs/load@0.0.4": {}
 
   "@netlify/binary-info@1.0.0": {}
 
@@ -8065,13 +8132,13 @@ snapshots:
       csstype: 3.1.3
     optional: true
 
-  "@types/readable-stream@4.0.21":
-    dependencies:
-      "@types/node": 24.0.4
-
   "@types/resolve@1.20.2": {}
 
   "@types/triple-beam@1.3.5": {}
+
+  "@types/ws@8.18.1":
+    dependencies:
+      "@types/node": 24.0.4
 
   "@types/yauzl@2.10.3":
     dependencies:
@@ -8121,6 +8188,7 @@ snapshots:
       tslib: 2.8.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   "@vercel/blob@1.1.1":
     dependencies:
@@ -8339,13 +8407,6 @@ snapshots:
       inherits: 2.0.4
       readable-stream: 3.6.2
 
-  bl@6.1.0:
-    dependencies:
-      "@types/readable-stream": 4.0.21
-      buffer: 6.0.3
-      inherits: 2.0.4
-      readable-stream: 4.7.0
-
   boolbase@1.0.0: {}
 
   brace-expansion@2.0.2:
@@ -8367,7 +8428,8 @@ snapshots:
 
   buffer-crc32@1.0.0: {}
 
-  buffer-equal-constant-time@1.0.1: {}
+  buffer-equal-constant-time@1.0.1:
+    optional: true
 
   buffer-from@1.1.2: {}
 
@@ -8386,6 +8448,7 @@ snapshots:
   bundle-name@4.1.0:
     dependencies:
       run-applescript: 7.0.0
+    optional: true
 
   c12@2.0.4(magicast@0.3.5):
     dependencies:
@@ -8652,10 +8715,11 @@ snapshots:
 
   data-uri-to-buffer@4.0.1: {}
 
-  db0@0.3.2(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1):
+  db0@0.3.2(@libsql/client@0.8.1)(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1):
     optionalDependencies:
+      "@libsql/client": 0.8.1
       better-sqlite3: 12.1.1
-      drizzle-orm: 0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0)
+      drizzle-orm: 0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0)
       mysql2: 3.14.1
 
   debug@4.4.1:
@@ -8674,16 +8738,19 @@ snapshots:
 
   deepmerge@4.3.1: {}
 
-  default-browser-id@5.0.0: {}
+  default-browser-id@5.0.0:
+    optional: true
 
   default-browser@5.2.1:
     dependencies:
       bundle-name: 4.1.0
       default-browser-id: 5.0.0
+    optional: true
 
   define-lazy-prop@2.0.0: {}
 
-  define-lazy-prop@3.0.0: {}
+  define-lazy-prop@3.0.0:
+    optional: true
 
   defu@6.1.4: {}
 
@@ -8694,6 +8761,8 @@ snapshots:
   destr@2.0.5: {}
 
   detect-libc@1.0.3: {}
+
+  detect-libc@2.0.2: {}
 
   detect-libc@2.0.4: {}
 
@@ -8777,8 +8846,9 @@ snapshots:
 
   dotenv@16.6.0: {}
 
-  drizzle-orm@0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@11.10.0)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0):
+  drizzle-orm@0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@11.10.0)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0):
     optionalDependencies:
+      "@libsql/client": 0.8.1
       "@prisma/client": 5.22.0(prisma@5.22.0)
       "@types/better-sqlite3": 7.6.13
       "@types/pg": 8.15.4
@@ -8790,8 +8860,9 @@ snapshots:
       prisma: 5.22.0
       react: 19.1.0
 
-  drizzle-orm@0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0):
+  drizzle-orm@0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0):
     optionalDependencies:
+      "@libsql/client": 0.8.1
       "@prisma/client": 5.22.0(prisma@5.22.0)
       "@types/better-sqlite3": 7.6.13
       "@types/pg": 8.15.4
@@ -8817,6 +8888,7 @@ snapshots:
   ecdsa-sig-formatter@1.0.11:
     dependencies:
       safe-buffer: 5.2.1
+    optional: true
 
   ee-first@1.1.1: {}
 
@@ -9174,6 +9246,7 @@ snapshots:
       debug: 4.4.1
     transitivePeerDependencies:
       - supports-color
+    optional: true
 
   http-shutdown@1.2.2: {}
 
@@ -9222,7 +9295,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  ipx@3.0.3(@azure/identity@4.10.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(db0@0.3.2(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1))(ioredis@5.6.1):
+  ipx@3.0.3(@azure/identity@4.10.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(db0@0.3.2(@libsql/client@0.8.1)(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1))(ioredis@5.6.1):
     dependencies:
       "@fastify/accept-negotiator": 2.0.1
       citty: 0.1.6
@@ -9238,7 +9311,7 @@ snapshots:
       sharp: 0.33.5
       svgo: 3.3.2
       ufo: 1.6.1
-      unstorage: 1.16.0(@azure/identity@4.10.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(db0@0.3.2(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1))(ioredis@5.6.1)
+      unstorage: 1.16.0(@azure/identity@4.10.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(db0@0.3.2(@libsql/client@0.8.1)(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1))(ioredis@5.6.1)
       xss: 1.0.15
     transitivePeerDependencies:
       - "@azure/app-configuration"
@@ -9344,7 +9417,7 @@ snapshots:
 
   jose@5.10.0: {}
 
-  js-md4@0.3.2: {}
+  js-base64@3.7.7: {}
 
   js-tokens@4.0.0: {}
 
@@ -9372,6 +9445,7 @@ snapshots:
       lodash.once: 4.1.1
       ms: 2.1.3
       semver: 7.7.2
+    optional: true
 
   junk@4.0.1: {}
 
@@ -9380,11 +9454,13 @@ snapshots:
       buffer-equal-constant-time: 1.0.1
       ecdsa-sig-formatter: 1.0.11
       safe-buffer: 5.2.1
+    optional: true
 
   jws@3.2.2:
     dependencies:
       jwa: 1.4.2
       safe-buffer: 5.2.1
+    optional: true
 
   jwt-decode@4.0.0: {}
 
@@ -9409,6 +9485,19 @@ snapshots:
   lazystream@1.0.1:
     dependencies:
       readable-stream: 2.3.8
+
+  libsql@0.3.19:
+    dependencies:
+      "@neon-rs/load": 0.0.4
+      detect-libc: 2.0.2
+    optionalDependencies:
+      "@libsql/darwin-arm64": 0.3.19
+      "@libsql/darwin-x64": 0.3.19
+      "@libsql/linux-arm64-gnu": 0.3.19
+      "@libsql/linux-arm64-musl": 0.3.19
+      "@libsql/linux-x64-gnu": 0.3.19
+      "@libsql/linux-x64-musl": 0.3.19
+      "@libsql/win32-x64-msvc": 0.3.19
 
   lilconfig@2.1.0: {}
 
@@ -9454,21 +9543,28 @@ snapshots:
 
   lodash.defaults@4.2.0: {}
 
-  lodash.includes@4.3.0: {}
+  lodash.includes@4.3.0:
+    optional: true
 
   lodash.isarguments@3.1.0: {}
 
-  lodash.isboolean@3.0.3: {}
+  lodash.isboolean@3.0.3:
+    optional: true
 
-  lodash.isinteger@4.0.4: {}
+  lodash.isinteger@4.0.4:
+    optional: true
 
-  lodash.isnumber@3.0.3: {}
+  lodash.isnumber@3.0.3:
+    optional: true
 
-  lodash.isplainobject@4.0.6: {}
+  lodash.isplainobject@4.0.6:
+    optional: true
 
-  lodash.isstring@4.0.1: {}
+  lodash.isstring@4.0.1:
+    optional: true
 
-  lodash.once@4.1.1: {}
+  lodash.once@4.1.1:
+    optional: true
 
   lodash@4.17.21: {}
 
@@ -9611,8 +9707,6 @@ snapshots:
 
   napi-build-utils@2.0.0: {}
 
-  native-duplexpair@1.0.0: {}
-
   netlify@13.3.5:
     dependencies:
       "@netlify/open-api": 2.37.0
@@ -9622,7 +9716,7 @@ snapshots:
       p-wait-for: 5.0.2
       qs: 6.14.0
 
-  nitropack@2.11.13(@azure/identity@4.10.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1):
+  nitropack@2.11.13(@azure/identity@4.10.1)(@libsql/client@0.8.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1):
     dependencies:
       "@cloudflare/kv-asset-handler": 0.4.0
       "@netlify/functions": 3.1.10(rollup@4.44.1)
@@ -9644,7 +9738,7 @@ snapshots:
       cookie-es: 2.0.0
       croner: 9.1.0
       crossws: 0.3.5
-      db0: 0.3.2(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1)
+      db0: 0.3.2(@libsql/client@0.8.1)(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1)
       defu: 6.1.4
       destr: 2.0.5
       dot-prop: 9.0.0
@@ -9690,7 +9784,7 @@ snapshots:
       unenv: 2.0.0-rc.18
       unimport: 5.0.1
       unplugin-utils: 0.2.4
-      unstorage: 1.16.0(@azure/identity@4.10.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(db0@0.3.2(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1))(ioredis@5.6.1)
+      unstorage: 1.16.0(@azure/identity@4.10.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(db0@0.3.2(@libsql/client@0.8.1)(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1))(ioredis@5.6.1)
       untyped: 2.0.0
       unwasm: 0.3.9
       youch: 4.1.0-beta.8
@@ -9829,6 +9923,7 @@ snapshots:
       define-lazy-prop: 3.0.0
       is-inside-container: 1.0.0
       is-wsl: 3.1.0
+    optional: true
 
   open@8.4.2:
     dependencies:
@@ -10083,6 +10178,8 @@ snapshots:
 
   process@0.11.10: {}
 
+  promise-limit@2.7.0: {}
+
   prompts@2.4.2:
     dependencies:
       kleur: 3.0.3
@@ -10248,7 +10345,8 @@ snapshots:
 
   rou3@0.5.1: {}
 
-  run-applescript@7.0.0: {}
+  run-applescript@7.0.0:
+    optional: true
 
   run-parallel@1.2.0:
     dependencies:
@@ -10456,8 +10554,6 @@ snapshots:
 
   split2@4.2.0: {}
 
-  sprintf-js@1.1.3: {}
-
   sqlstring@2.3.3: {}
 
   stack-trace@0.0.10: {}
@@ -10569,23 +10665,6 @@ snapshots:
       minizlib: 3.0.2
       mkdirp: 3.0.1
       yallist: 5.0.0
-
-  tarn@3.0.2: {}
-
-  tedious@18.6.1:
-    dependencies:
-      "@azure/core-auth": 1.9.0
-      "@azure/identity": 4.10.1
-      "@azure/keyvault-keys": 4.10.0
-      "@js-joda/core": 5.6.5
-      "@types/node": 24.0.4
-      bl: 6.1.0
-      iconv-lite: 0.6.3
-      js-md4: 0.3.2
-      native-duplexpair: 1.0.0
-      sprintf-js: 1.1.3
-    transitivePeerDependencies:
-      - supports-color
 
   terser@5.43.1:
     dependencies:
@@ -10728,7 +10807,7 @@ snapshots:
       picomatch: 4.0.2
       webpack-virtual-modules: 0.6.2
 
-  unstorage@1.16.0(@azure/identity@4.10.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(db0@0.3.2(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1))(ioredis@5.6.1):
+  unstorage@1.16.0(@azure/identity@4.10.1)(@vercel/blob@1.1.1)(aws4fetch@1.0.20)(db0@0.3.2(@libsql/client@0.8.1)(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1))(ioredis@5.6.1):
     dependencies:
       anymatch: 3.1.3
       chokidar: 4.0.3
@@ -10742,7 +10821,7 @@ snapshots:
       "@azure/identity": 4.10.1
       "@vercel/blob": 1.1.1
       aws4fetch: 1.0.20
-      db0: 0.3.2(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1)
+      db0: 0.3.2(@libsql/client@0.8.1)(better-sqlite3@12.1.1)(drizzle-orm@0.33.0(@libsql/client@0.8.1)(@prisma/client@5.22.0(prisma@5.22.0))(@types/better-sqlite3@7.6.13)(@types/pg@8.15.4)(@types/react@19.1.8)(better-sqlite3@12.1.1)(kysely@0.28.2)(mysql2@3.14.1)(pg@8.16.3)(prisma@5.22.0)(react@19.1.0))(mysql2@3.14.1)
       ioredis: 5.6.1
 
   untun@0.1.3:
@@ -10784,7 +10863,8 @@ snapshots:
 
   uuid@11.1.0: {}
 
-  uuid@8.3.2: {}
+  uuid@8.3.2:
+    optional: true
 
   validate-npm-package-license@3.0.4:
     dependencies:
@@ -10852,6 +10932,8 @@ snapshots:
     dependencies:
       imurmurhash: 0.1.4
       signal-exit: 4.1.0
+
+  ws@8.18.3: {}
 
   xss@1.0.15:
     dependencies:
