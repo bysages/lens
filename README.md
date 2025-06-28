@@ -272,44 +272,65 @@ Lens is built with modern web standards and follows clean architecture principle
 
 ## 🚀 Deployment
 
-### Vercel
+### Nitro Deployment
 
-```bash
-# Install Vercel CLI
-npm i -g vercel
+Lens is built with Nitro, which supports multiple deployment targets. For comprehensive deployment options and platform-specific configurations, please refer to the official [Nitro Deployment Guide](https://nitro.build/deploy).
 
-# Deploy
-vercel
+Nitro provides zero-config deployment for many platforms including:
+
+- Vercel
+- Cloudflare Workers/Pages
+- Netlify
+- AWS Lambda
+- Azure Functions
+- And many more
+
+### Nixpacks Deployment
+
+This project includes a `nixpacks.toml` configuration for seamless deployment on platforms that support Nixpacks (like Railway, Zeabur, etc.).
+
+The configuration includes:
+
+- **System Dependencies**: vips, chromium, fontconfig for image processing and screenshot capabilities
+- **Build Tools**: python3, gcc, gnumake for native module compilation
+- **Package Manager**: pnpm for efficient dependency management
+
+```toml
+# nixpacks.toml
+[phases.setup]
+nixPkgs = [
+  "...",
+  "vips",        # Image processing (Sharp/IPX)
+  "chromium",    # Screenshot service (Playwright)
+  "fontconfig",  # Font rendering
+  "python3",     # Native modules
+  "gcc",
+  "gnumake"
+]
+
+[phases.install]
+cmds = ["pnpm install"]
+
+[phases.build]
+cmds = ["pnpm build"]
+
+[start]
+cmd = "pnpm preview"
 ```
 
-Configure environment variables in Vercel dashboard.
+### Environment Variables
 
-### Cloudflare Workers
+Configure the following environment variables in your deployment platform:
 
-```bash
-# Install Wrangler CLI
-npm i -g wrangler
+```env
+# Required
+BETTER_AUTH_SECRET=your-random-secret-here
 
-# Deploy
-wrangler deploy
+# Optional (for enhanced functionality)
+DATABASE_URL=your-database-url
+REDIS_URL=your-redis-url
+# ... other environment variables from env.example
 ```
-
-### Docker
-
-```dockerfile
-FROM node:18-alpine
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci --production
-COPY . .
-RUN npm run build
-EXPOSE 3000
-CMD ["npm", "start"]
-```
-
-### Railway/Render
-
-Deploy directly from GitHub with zero configuration.
 
 ## 🤝 Contributing
 
