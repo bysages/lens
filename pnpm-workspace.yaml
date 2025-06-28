@@ -1,0 +1,5 @@
+ignoredBuiltDependencies:
+  - sharp
+
+onlyBuiltDependencies:
+  - better-sqlite3
