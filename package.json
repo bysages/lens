@@ -1,0 +1,66 @@
+{
+  "name": "lens",
+  "version": "0.0.0",
+  "description": "High-performance image proxy and web services toolkit with IPX, screenshot capture, font serving, and authentication",
+  "private": true,
+  "type": "module",
+  "keywords": [
+    "image-proxy",
+    "screenshot",
+    "fonts",
+    "authentication",
+    "ipx",
+    "better-auth",
+    "nitro",
+    "typescript",
+    "web-services",
+    "performance"
+  ],
+  "scripts": {
+    "prepare": "nitropack prepare",
+    "dev": "nitropack dev",
+    "build": "nitropack build",
+    "preview": "node .output/server/index.mjs",
+    "lint": "basis lint --all",
+    "postinstall": "nitropack prepare && basis git setup"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/bysages/lens.git"
+  },
+  "author": {
+    "name": "By Sages",
+    "email": "official@bysages.com",
+    "url": "https://www.bysages.com/"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/bysages/lens/issues"
+  },
+  "homepage": "https://github.com/bysages/lens#readme",
+  "devDependencies": {
+    "@better-auth/cli": "1.2.10",
+    "@funish/basis": "0.0.5",
+    "@prettier/plugin-oxc": "0.0.4",
+    "@sparticuz/chromium": "137.0.1",
+    "@types/node": "24.0.4",
+    "@types/pg": "8.15.4",
+    "@vercel/blob": "1.1.1",
+    "@vercel/og": "0.6.8",
+    "aws4fetch": "1.0.20",
+    "better-auth": "1.2.10",
+    "better-sqlite3": "12.1.1",
+    "cheerio": "1.1.0",
+    "cors": "2.8.5",
+    "ioredis": "5.6.1",
+    "ipx": "3.0.3",
+    "nitropack": "2.11.13",
+    "oxlint": "1.3.0",
+    "pg": "8.16.3",
+    "playwright": "1.53.1",
+    "prettier": "3.6.2",
+    "sharp": "0.34.2",
+    "unifont": "0.5.2"
+  },
+  "packageManager": "pnpm@10.12.1+sha512.f0dda8580f0ee9481c5c79a1d927b9164f2c478e90992ad268bbb2465a736984391d6333d2c327913578b2804af33474ca554ba29c04a8b13060a717675ae3ac"
+}
