@@ -1,8 +1,5 @@
 # Nixpacks Configuration for Nitro App
 
-[variables]
-PLAYWRIGHT_BROWSERS_PATH = "/app/.cache/ms-playwright"
-
 [phases.setup]
 nixPkgs = ["...", "vips", "fontconfig", "python3", "gcc", "gnumake"]
 
@@ -12,12 +9,11 @@ cmds = ["pnpm install --frozen-lockfile --ignore-scripts"]
 
 [phases.build]
 cmds = [
-  "pnpm exec playwright install chromium-headless-shell --with-deps",
   "...",
-  "pnpm store prune",
+  "pnpm store prune"
 ]
 
 [start]
 runImage = "node:22-bookworm"
-onlyIncludeFiles = [".output", ".cache/ms-playwright"]
-cmd = "node .output/server/index.mjs"
+onlyIncludeFiles = [".output"]
+cmd = "npx playwright@1.53.1 install chromium-headless-shell --with-deps && node .output/server/index.mjs"
