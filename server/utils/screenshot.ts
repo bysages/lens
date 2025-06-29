@@ -8,6 +8,7 @@ import {
 } from "playwright";
 import { cacheStorage } from "./storage";
 import { pluginRateLimits } from "./rate-limits";
+import { registerCleanup } from "./memory";
 
 // Screenshot configuration interface
 interface ScreenshotOptions {
@@ -24,13 +25,16 @@ interface ScreenshotOptions {
   delay?: number;
 }
 
-// Browser pool item
+// Browser pool item with viewport tracking
 interface PooledBrowser {
   browser: Browser;
   context: BrowserContext;
   availablePages: Page[];
   activePagesCount: number;
   lastUsed: number;
+  viewport: { width: number; height: number };
+  isDarkMode: boolean;
+  isMobile: boolean;
 }
 
 // Simple browser pool class (KISS principle)
@@ -42,107 +46,130 @@ class OptimizedBrowserPool {
   private readonly browserIdleTimeout = 10 * 60 * 1000; // 10 minutes
 
   /**
-   * Get an available page for screenshot
+   * Get an available page for screenshot (optimized single-pass search)
    */
   async getPage(
     options: ScreenshotOptions,
   ): Promise<{ page: Page; releasePage: () => Promise<void> }> {
-    // Find browser with available pages
-    let pooledBrowser = this.browsers.find(
-      (b) =>
-        b.browser.isConnected() &&
-        b.availablePages.length > 0 &&
-        b.activePagesCount < this.maxPagesPerBrowser,
-    );
+    const targetViewport = {
+      width: options.width || 1280,
+      height: options.height || 720,
+    };
+    const targetDarkMode = options.darkMode || false;
+    const targetMobile = options.mobile || false;
 
-    // Create new browser if needed or viewport doesn't match
-    if (!pooledBrowser && this.browsers.length < this.maxBrowsers) {
-      pooledBrowser = await this.createBrowser(options);
+    let bestBrowser: PooledBrowser | null = null;
+    let needsNewContext = false;
+
+    // Single-pass search for optimal browser
+    for (const browser of this.browsers) {
+      if (!browser.browser.isConnected()) continue;
+
+      // Check viewport and context compatibility
+      const isCompatible =
+        browser.viewport.width === targetViewport.width &&
+        browser.viewport.height === targetViewport.height &&
+        browser.isDarkMode === targetDarkMode &&
+        browser.isMobile === targetMobile;
+
+      if (
+        isCompatible &&
+        browser.availablePages.length > 0 &&
+        browser.activePagesCount < this.maxPagesPerBrowser
+      ) {
+        // Perfect match - use immediately
+        bestBrowser = browser;
+        break;
+      }
+
+      // Track least loaded browser for fallback
+      if (
+        !bestBrowser ||
+        browser.activePagesCount < bestBrowser.activePagesCount
+      ) {
+        bestBrowser = browser;
+        needsNewContext = !isCompatible;
+      }
     }
 
-    // Use least loaded browser as fallback, but recreate context if viewport differs
-    if (!pooledBrowser) {
-      pooledBrowser = this.browsers
-        .filter((b) => b.browser.isConnected())
-        .sort((a, b) => a.activePagesCount - b.activePagesCount)[0];
-
-      // Recreate context with new viewport
-      await pooledBrowser.context.close();
-      pooledBrowser.context = await this.createContext(
-        pooledBrowser.browser,
-        options,
-      );
-      pooledBrowser.availablePages = []; // Clear old pages
+    // Create new browser if needed and possible
+    if (!bestBrowser && this.browsers.length < this.maxBrowsers) {
+      bestBrowser = await this.createBrowser(options);
+      needsNewContext = false;
     }
 
-    if (!pooledBrowser) {
+    if (!bestBrowser) {
       throw new Error("No available browsers in pool");
     }
 
-    // Get or create page
-    let page: Page;
-    if (pooledBrowser.availablePages.length > 0) {
-      page = pooledBrowser.availablePages.pop()!;
-      await this.resetPage(page, options);
-    } else {
-      page = await this.createPage(pooledBrowser, options);
+    // Recreate context if viewport/settings don't match
+    if (needsNewContext) {
+      await bestBrowser.context.close();
+      bestBrowser.context = await this.createContext(
+        bestBrowser.browser,
+        options,
+      );
+      bestBrowser.availablePages = [];
+      bestBrowser.viewport = targetViewport;
+      bestBrowser.isDarkMode = targetDarkMode;
+      bestBrowser.isMobile = targetMobile;
     }
 
-    pooledBrowser.activePagesCount++;
-    pooledBrowser.lastUsed = Date.now();
+    // Get or create page (optimized page reuse)
+    let page: Page;
+    if (bestBrowser.availablePages.length > 0) {
+      page = bestBrowser.availablePages.pop()!;
+      // Only reset if absolutely necessary
+      if (needsNewContext) {
+        await this.quickResetPage(page);
+      }
+    } else {
+      page = await this.createPage(bestBrowser, options);
+    }
 
-    // Return page with release function
+    bestBrowser.activePagesCount++;
+    bestBrowser.lastUsed = Date.now();
+
     return {
       page,
       releasePage: async () => {
-        pooledBrowser!.activePagesCount--;
-        pooledBrowser!.availablePages.push(page);
-        pooledBrowser!.lastUsed = Date.now();
+        bestBrowser!.activePagesCount--;
+        bestBrowser!.availablePages.push(page);
+        bestBrowser!.lastUsed = Date.now();
       },
     };
   }
 
   /**
-   * Create browser context with proper viewport
+   * Create browser context with optimized settings (single config pass)
    */
   private async createContext(
     browser: Browser,
     options: ScreenshotOptions,
   ): Promise<BrowserContext> {
-    const viewport = {
-      width: options.width || 1280,
-      height: options.height || 720,
-    };
-
+    // Build complete context options in one pass
     const contextOptions: Parameters<typeof browser.newContext>[0] = {
       ignoreHTTPSErrors: true,
-      viewport: viewport,
+      bypassCSP: true, // Performance optimization
+      viewport: {
+        width: options.width || 1280,
+        height: options.height || 720,
+      },
+      deviceScaleFactor: options.deviceScaleFactor || 1,
+      colorScheme: options.darkMode ? "dark" : "light",
+      // Use realistic user agent for all domains
+      userAgent: options.mobile
+        ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+        : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     };
 
-    // Set device scale factor if specified
-    if (options.deviceScaleFactor) {
-      contextOptions.deviceScaleFactor = options.deviceScaleFactor;
-    }
-
-    // Set user agent for mobile if specified
+    // Mobile settings (all at once)
     if (options.mobile) {
-      contextOptions.userAgent =
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 14_7_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.1.2 Mobile/15E148 Safari/604.1";
       contextOptions.isMobile = true;
       contextOptions.hasTouch = true;
     }
 
-    const context = await browser.newContext(contextOptions);
-
-    // Set color scheme if dark mode is requested
-    if (options.darkMode) {
-      await context.addInitScript(() => {
-        const media = matchMedia("(prefers-color-scheme: dark)");
-        Object.defineProperty(media, "matches", { value: true });
-      });
-    }
-
-    return context;
+    return await browser.newContext(contextOptions);
   }
 
   /**
@@ -160,7 +187,7 @@ class OptimizedBrowserPool {
     let browser: Browser;
 
     try {
-      // Standard chromium with optimizations
+      // Standard chromium with aggressive performance optimizations and anti-detection
       const launchOptions: Parameters<typeof playwright.launch>[0] = {
         headless: true,
         args: [
@@ -171,6 +198,28 @@ class OptimizedBrowserPool {
           "--disable-background-timer-throttling",
           "--disable-backgrounding-occluded-windows",
           "--disable-renderer-backgrounding",
+          "--disable-features=TranslateUI,BlinkGenPropertyTrees,VizDisplayCompositor",
+          "--disable-background-networking",
+          "--disable-default-apps",
+          "--disable-extensions",
+          "--disable-plugins",
+          "--disable-sync",
+          "--hide-scrollbars",
+          "--mute-audio",
+          "--no-default-browser-check",
+          "--no-first-run",
+          "--disable-gpu",
+          "--disable-gpu-sandbox",
+          "--disable-blink-features=AutomationControlled",
+          "--disable-features=VizDisplayCompositor",
+          "--disable-ipc-flooding-protection",
+          "--disable-dev-tools",
+          "--disable-hang-monitor",
+          "--disable-prompt-on-repost",
+          "--disable-domain-reliability",
+          "--disable-component-extensions-with-background-pages",
+          "--disable-client-side-phishing-detection",
+          "--disable-background-mode",
         ],
       };
 
@@ -212,6 +261,9 @@ class OptimizedBrowserPool {
       availablePages: [],
       activePagesCount: 0,
       lastUsed: Date.now(),
+      viewport: { width: options.width || 1280, height: options.height || 720 },
+      isDarkMode: options.darkMode || false,
+      isMobile: options.mobile || false,
     };
 
     this.browsers.push(pooledBrowser);
@@ -234,88 +286,119 @@ class OptimizedBrowserPool {
   }
 
   /**
-   * Reset page state for reuse
+   * Reset page state for reuse (legacy method)
    */
   private async resetPage(
     page: Page,
     options: ScreenshotOptions,
   ): Promise<void> {
-    // Quick reset by navigating to blank page
-    await page.goto("about:blank");
-
-    // Note: Viewport is set at context level, no need to reset here
-
-    // Reapply optimizations
+    await this.quickResetPage(page);
     await this.optimizePage(page, options);
   }
 
   /**
-   * Apply page optimizations
+   * Quick page reset for reuse (optimized)
+   */
+  private async quickResetPage(page: Page): Promise<void> {
+    // Simple reset without full re-optimization
+    await page.goto("about:blank", { waitUntil: "domcontentloaded" });
+  }
+
+  /**
+   * Apply page optimizations (cached to avoid repetition)
    */
   private async optimizePage(
     page: Page,
     options: ScreenshotOptions,
   ): Promise<void> {
-    // Block unnecessary resources
-    await page.route("**/*", (route) => {
-      const resourceType = route.request().resourceType();
-      if (["font", "media", "websocket"].includes(resourceType)) {
-        route.abort();
-      } else {
-        route.continue();
-      }
-    });
+    // Check if optimizations already applied (avoid duplicate setup)
+    if (!(page as any)._lensOptimized) {
+      // Aggressive resource blocking for maximum performance
+      await page.route("**/*", (route) => {
+        const resourceType = route.request().resourceType();
+        if (
+          [
+            "font",
+            "media",
+            "websocket",
+            "other",
+            "manifest",
+            "texttrack",
+          ].includes(resourceType)
+        ) {
+          route.abort();
+        } else {
+          route.continue();
+        }
+      });
 
-    // Set color scheme
-    if (options.darkMode) {
-      await page.emulateMedia({ colorScheme: "dark" });
+      // Set optimized timeouts for performance
+      page.setDefaultTimeout(10000);
+      page.setDefaultNavigationTimeout(10000);
+
+      // Fast CSS injection to disable animations
+      await page.evaluate(() => {
+        const style = document.createElement("style");
+        style.textContent =
+          "*,::after,::before{transition:none!important;animation:none!important}";
+        document.head.appendChild(style);
+      });
+
+      // Mark as optimized
+      (page as any)._lensOptimized = true;
     }
 
-    // Set timeouts
-    page.setDefaultTimeout(20000);
-    page.setDefaultNavigationTimeout(20000);
+    // Set color scheme (can change per request)
+    if (options.darkMode) {
+      await page.emulateMedia({ colorScheme: "dark" });
+    } else {
+      await page.emulateMedia({ colorScheme: "light" });
+    }
   }
 
   /**
-   * Cleanup old resources
+   * Cleanup old resources (optimized single-pass)
    */
   async cleanup(): Promise<void> {
     const now = Date.now();
+    const keepBrowsers: PooledBrowser[] = [];
 
-    for (const pooledBrowser of this.browsers) {
-      // Close idle pages
-      if (
-        pooledBrowser.availablePages.length > 0 &&
-        now - pooledBrowser.lastUsed > this.pageIdleTimeout
-      ) {
-        const pagesToClose = pooledBrowser.availablePages.splice(0);
-        for (const page of pagesToClose) {
-          try {
-            await page.close();
-          } catch {
-            // Silent failure - graceful degradation
-          }
+    // Single-pass cleanup with parallel page closing
+    const closePromises: Promise<void>[] = [];
+
+    for (const browser of this.browsers) {
+      const isIdle = now - browser.lastUsed > this.browserIdleTimeout;
+      const shouldRemove =
+        !browser.browser.isConnected() ||
+        (browser.activePagesCount === 0 && isIdle);
+
+      if (shouldRemove) {
+        // Close browser (async)
+        closePromises.push(
+          browser.browser.close().catch(() => {}), // Silent failure
+        );
+      } else {
+        // Keep browser but maybe clean pages
+        if (
+          browser.availablePages.length > 0 &&
+          now - browser.lastUsed > this.pageIdleTimeout
+        ) {
+          // Close idle pages in parallel
+          const pagesToClose = browser.availablePages.splice(0);
+          closePromises.push(
+            ...pagesToClose.map((page) => page.close().catch(() => {})),
+          );
         }
+        keepBrowsers.push(browser);
       }
     }
 
-    // Remove idle browsers
-    const browsersToRemove = this.browsers.filter(
-      (b) =>
-        !b.browser.isConnected() ||
-        (b.activePagesCount === 0 &&
-          now - b.lastUsed > this.browserIdleTimeout),
-    );
-
-    for (const browserInfo of browsersToRemove) {
-      try {
-        await browserInfo.browser.close();
-      } catch {
-        // Silent failure - graceful degradation
-      }
+    // Wait for all cleanup operations in parallel
+    if (closePromises.length > 0) {
+      await Promise.allSettled(closePromises);
     }
 
-    this.browsers = this.browsers.filter((b) => !browsersToRemove.includes(b));
+    this.browsers = keepBrowsers;
   }
 
   /**
@@ -336,37 +419,78 @@ class OptimizedBrowserPool {
 // Global browser pool instance
 const browserPool = new OptimizedBrowserPool();
 
+// Register cleanup with global memory manager
+registerCleanup(async () => {
+  await browserPool.cleanup();
+});
+
 /**
- * Take screenshot using optimized browser pool
+ * Take screenshot with retry mechanism (optimized for performance and reliability)
+ */
+async function takeScreenshotWithRetry(
+  options: ScreenshotOptions,
+  maxRetries: number = 0,
+): Promise<Buffer> {
+  // Performance mode: no retries by default for maximum speed
+  if (maxRetries === 0) {
+    return await takeScreenshot(options);
+  }
+
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      return await takeScreenshot(options);
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(
+        `Screenshot attempt ${attempt + 1} failed:`,
+        error instanceof Error ? error.message : error,
+      );
+
+      // Don't retry on the last attempt
+      if (attempt === maxRetries) {
+        break;
+      }
+
+      // Minimal delay before retry for faster performance
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+  }
+
+  throw lastError || new Error("Screenshot failed after retries");
+}
+
+/**
+ * Take screenshot using optimized browser pool (streamlined flow)
  */
 async function takeScreenshot(options: ScreenshotOptions): Promise<Buffer> {
   const { page, releasePage } = await browserPool.getPage(options);
 
   try {
-    // Navigate to URL
+    // Fast navigation strategy for performance
+    const waitUntil = options.waitUntil || "domcontentloaded"; // Faster than 'load'
+
     await page.goto(options.url, {
-      waitUntil: options.waitUntil || "networkidle",
-      timeout: 20000,
+      waitUntil,
+      timeout: 10000, // Reduced timeout for better performance
     });
 
-    // Optional delay
+    // Minimal delay only when explicitly requested
     if (options.delay && options.delay > 0) {
-      await page.waitForTimeout(Math.min(options.delay, 3000));
+      const actualDelay = Math.min(options.delay, 1000); // Further reduced max delay
+      await page.waitForTimeout(actualDelay);
     }
+    // Skip stability check for better performance
 
-    // Screenshot configuration
+    // Optimized screenshot config (single object creation)
     const screenshotConfig: Parameters<typeof page.screenshot>[0] = {
-      type: (options.format === "webp" ? "png" : options.format) || "png", // WebP not supported, fallback to PNG
-      fullPage: options.fullPage !== false,
+      type: (options.format === "webp" ? "png" : options.format) || "png",
+      fullPage: options.fullPage === true, // Explicit check for fullPage
+      ...(options.format === "jpeg" && {
+        quality: Math.min(Math.max(options.quality || 80, 1), 100),
+      }),
     };
-
-    // Add quality for JPEG only (WebP handled as PNG)
-    if (options.format === "jpeg") {
-      screenshotConfig.quality = Math.min(
-        Math.max(options.quality || 80, 1),
-        100,
-      );
-    }
 
     return await page.screenshot(screenshotConfig);
   } finally {
@@ -383,8 +507,14 @@ function parseScreenshotOptions(query: Record<string, any>): ScreenshotOptions {
     throw new Error("Missing url parameter");
   }
 
+  // Normalize URL to handle common cases like 'google.com' -> 'https://google.com'
+  let normalizedUrl = url;
+  if (!normalizedUrl.startsWith("http")) {
+    normalizedUrl = `https://${normalizedUrl}`;
+  }
+
   const options: ScreenshotOptions = {
-    url: url.startsWith("http") ? url : `https://${url}`,
+    url: normalizedUrl,
   };
 
   // Parse dimensions with limits
@@ -408,7 +538,7 @@ function parseScreenshotOptions(query: Record<string, any>): ScreenshotOptions {
   }
 
   // Parse boolean options
-  options.fullPage = query.fullPage !== "false";
+  options.fullPage = query.fullPage === "true"; // Default to viewport screenshot
   options.mobile = query.mobile === "true";
   options.darkMode = query.darkMode === "true";
 
@@ -428,7 +558,7 @@ function parseScreenshotOptions(query: Record<string, any>): ScreenshotOptions {
   }
 
   if (query.delay) {
-    options.delay = Math.min(Math.max(parseInt(String(query.delay)), 0), 3000);
+    options.delay = Math.min(Math.max(parseInt(String(query.delay)), 0), 1000); // Reduced max delay for performance
   }
 
   // Parse wait condition
@@ -444,22 +574,11 @@ function parseScreenshotOptions(query: Record<string, any>): ScreenshotOptions {
 }
 
 /**
- * Generate cache key for screenshot
+ * Generate cache key for screenshot (optimized string building)
  */
 function generateCacheKey(options: ScreenshotOptions): string {
-  const parts = [
-    "screenshot-v2",
-    options.url,
-    options.width || 1280,
-    options.height || 720,
-    options.fullPage ? "full" : "viewport",
-    options.format || "png",
-    options.quality || 80,
-    options.mobile ? "mobile" : "desktop",
-    options.darkMode ? "dark" : "light",
-  ];
-
-  return parts.join(":");
+  // Direct string template for better performance
+  return `screenshot:${options.url}:${options.width || 1280}:${options.height || 720}:${options.fullPage ? "full" : "viewport"}:${options.format || "png"}:${options.quality || 80}:${options.mobile ? "mobile" : "desktop"}:${options.darkMode ? "dark" : "light"}`;
 }
 
 /**
@@ -498,14 +617,14 @@ export const screenshotPlugin = (): BetterAuthPlugin => {
               return new Response(cached, {
                 headers: {
                   "Content-Type": contentType,
-                  "Cache-Control": "public, max-age=3600",
+                  "Cache-Control": "public, max-age=86400", // 24 hours for better performance
                   "X-Cache": "HIT",
                 },
               });
             }
 
-            // Take screenshot
-            const screenshotBuffer = await takeScreenshot(options);
+            // Take screenshot with retry mechanism
+            const screenshotBuffer = await takeScreenshotWithRetry(options);
 
             // Cache result
             await cacheStorage.screenshots.set(cacheKey, screenshotBuffer);
@@ -520,7 +639,7 @@ export const screenshotPlugin = (): BetterAuthPlugin => {
             return new Response(screenshotBuffer, {
               headers: {
                 "Content-Type": contentType,
-                "Cache-Control": "public, max-age=3600",
+                "Cache-Control": "public, max-age=86400", // 24 hours for better performance
                 "X-Cache": "MISS",
               },
             });

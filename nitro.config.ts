@@ -4,10 +4,7 @@ import { defineNitroConfig } from "nitropack/config";
 export default defineNitroConfig({
   srcDir: "server",
 
-  // Experimental features
-  experimental: {
-    wasm: true, // For potential WASM font processing
-  },
+  preset: "node_cluster",
 
   // Build configuration
   minify: process.env.NODE_ENV === "production",

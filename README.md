@@ -15,8 +15,8 @@ A high-performance image proxy and web services toolkit built with modern TypeSc
 
 ### Performance & Scalability
 
-- **⚡ Multi-layer Caching**: Redis, file system, and cloud storage integration
-- **🏊‍♂️ Connection Pooling**: Optimized browser and database pools
+- **⚡ Multi-layer Caching**: Redis, file system, and cloud storage integration with 24-hour intelligent caching
+- **🏊‍♂️ Connection Pooling**: Optimized browser and database pools for maximum efficiency
 - **🛡️ Rate Limiting**: Unified rate limiting with plugin-level management
 - **☁️ Cloud Native**: Support for Railway, Zeabur, and other persistent runtime platforms
 - **🔄 Graceful Degradation**: Automatic fallbacks for missing services
@@ -86,7 +86,7 @@ GITHUB_CLIENT_SECRET=your-github-client-secret
 # Image proxy security
 ALLOWED_DOMAINS=example.com,cdn.example.com
 
-# Caching (improves performance)
+# Caching (significantly improves performance - 24-hour default cache)
 REDIS_URL=redis://localhost:6379
 
 # Cloud storage (for production)
@@ -99,6 +99,8 @@ REDIS_URL=redis://localhost:6379
 See `env.example` for all available options.
 
 ## 📡 API Reference
+
+All API responses include intelligent caching headers with 24-hour cache duration for optimal performance. Responses include `X-Cache` headers indicating cache status (HIT/MISS).
 
 ### Authentication
 
@@ -160,6 +162,12 @@ curl -H "x-api-key: your_key" \
 - `q_XXX` - Quality (1-100)
 - `c_MODE` - Crop mode (fill, fit, pad)
 
+**Performance Features:**
+
+- 24-hour intelligent caching for all processed images
+- Multi-layer storage optimization (Redis, filesystem, cloud)
+- Automatic format optimization and compression
+
 ### Screenshot Capture
 
 Capture website screenshots:
@@ -188,9 +196,15 @@ GET /screenshot?url={website_url}&options
 - `height` - Viewport height (default: 720)
 - `format` - Output format (png, jpeg, webp)
 - `quality` - JPEG quality (1-100)
-- `fullPage` - Capture full page (true/false)
+- `fullPage` - Capture full page (true/false, default: false for viewport capture)
 - `mobile` - Mobile viewport (true/false)
 - `darkMode` - Dark mode (true/false)
+
+**Performance Notes:**
+
+- Screenshots are cached for 24 hours for optimal performance
+- Identical requests return cached results with sub-second response times
+- Browser pool optimization provides faster screenshot generation
 
 ### Font Service
 
@@ -232,6 +246,11 @@ GET /og?title={title}&description={description}
 /og?title=Hello World&theme=dark&fontSize=72&width=1200&height=630
 ```
 
+**Caching:**
+
+- Generated OG images are cached for 24 hours
+- Identical requests with same parameters return cached results instantly
+
 ### Favicon Extraction
 
 Extract high-quality favicons:
@@ -249,6 +268,12 @@ GET /favicon?url={website_url}&size={size}
 # Custom size
 /favicon?url=https://example.com&size=64
 ```
+
+**Features:**
+
+- Smart favicon extraction from multiple sources (PWA manifests, Apple touch icons, HTML tags)
+- 24-hour caching with 7-day storage retention
+- Automatic fallback to generated favicon if none found
 
 ## 🏗️ Architecture
 

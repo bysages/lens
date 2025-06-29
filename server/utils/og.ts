@@ -157,7 +157,7 @@ export const ogPlugin = (): BetterAuthPlugin => {
             return new Response(buffer, {
               headers: {
                 "Content-Type": contentType,
-                "Cache-Control": "public, max-age=3600", // 1 hour cache
+                "Cache-Control": "public, max-age=86400", // 24 hours cache for better performance
               },
             });
           } catch (error) {

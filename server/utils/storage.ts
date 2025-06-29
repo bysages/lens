@@ -1,6 +1,6 @@
 // Unified storage architecture - intelligent environment detection and adaptive storage system
 import type { SecondaryStorage } from "better-auth";
-import { createStorage } from "unstorage";
+import { createStorage, type Driver } from "unstorage";
 import overlay from "unstorage/drivers/overlay";
 import memory from "unstorage/drivers/memory";
 import redisDriver from "unstorage/drivers/redis";
@@ -9,8 +9,6 @@ import s3Driver from "unstorage/drivers/s3";
 import Database from "better-sqlite3";
 import { Pool } from "pg";
 import { createPool } from "mysql2";
-// Optional database imports - install as needed:
-// npm install @libsql/kysely-libsql (for Turso)
 import { LibsqlDialect } from "@libsql/kysely-libsql";
 
 /**
@@ -75,7 +73,7 @@ function createMinIODriver() {
  * Create cache storage
  */
 function createCacheStorage() {
-  const layers: any[] = [memory()];
+  const layers: Driver[] = [memory()];
 
   // Add Redis if available
   if (process.env.REDIS_URL) {
@@ -182,67 +180,72 @@ export function createSecondaryStorageAdapter(): SecondaryStorage {
 export const database = getDatabase();
 
 /**
- * Direct storage tool functions
+ * Optimized storage tool functions with prefix caching
  * Simple, explicit cache access without unnecessary abstractions
  */
-export const cacheStorage = {
-  screenshots: {
-    async get(key: string) {
-      return await storage.getItemRaw(`screenshot:${key}`);
-    },
-    async set(key: string, value: Buffer, ttl = 3600) {
-      await storage.setItemRaw(`screenshot:${key}`, value, { ttl });
-    },
-    async remove(key: string) {
-      await storage.removeItem(`screenshot:${key}`);
-    },
-    async has(key: string) {
-      return await storage.hasItem(`screenshot:${key}`);
-    },
-  },
 
-  ogImages: {
+// Create optimized storage accessor with cached prefix
+function createStorageAccessor(prefix: string) {
+  return {
     async get(key: string) {
-      return await storage.getItemRaw(`og:${key}`);
+      return await storage.getItemRaw(prefix + key);
     },
     async set(key: string, value: Buffer, ttl = 86400) {
-      await storage.setItemRaw(`og:${key}`, value, { ttl });
+      // Improved default cache time
+      await storage.setItemRaw(prefix + key, value, { ttl });
     },
     async remove(key: string) {
-      await storage.removeItem(`og:${key}`);
+      await storage.removeItem(prefix + key);
     },
     async has(key: string) {
-      return await storage.hasItem(`og:${key}`);
+      return await storage.hasItem(prefix + key);
+    },
+    // Optimized batch operations
+    async getMultiple(keys: string[]) {
+      // Pre-build all keys at once for better performance
+      const prefixedKeys = keys.map((key) => prefix + key);
+      const promises = prefixedKeys.map((fullKey) =>
+        storage.getItemRaw(fullKey),
+      );
+      return await Promise.allSettled(promises);
+    },
+    async setMultiple(
+      items: Array<{ key: string; value: Buffer; ttl?: number }>,
+    ) {
+      // Pre-build operations for better performance
+      const promises = items.map(({ key, value, ttl }) =>
+        storage.setItemRaw(prefix + key, value, { ttl }),
+      );
+      await Promise.allSettled(promises);
+    },
+  };
+}
+
+export const cacheStorage = {
+  screenshots: {
+    ...createStorageAccessor("screenshot:"),
+    async set(key: string, value: Buffer, ttl = 86400) {
+      // 24 hours default
+      await storage.setItemRaw("screenshot:" + key, value, { ttl });
     },
   },
-
+  ogImages: {
+    ...createStorageAccessor("og:"),
+    async set(key: string, value: Buffer, ttl = 86400) {
+      // 24 hours default
+      await storage.setItemRaw("og:" + key, value, { ttl });
+    },
+  },
   fonts: {
-    async get(key: string) {
-      return await storage.getItemRaw(`font:${key}`);
-    },
+    ...createStorageAccessor("font:"),
     async set(key: string, value: Buffer, ttl = 86400 * 30) {
-      await storage.setItemRaw(`font:${key}`, value, { ttl });
-    },
-    async remove(key: string) {
-      await storage.removeItem(`font:${key}`);
-    },
-    async has(key: string) {
-      return await storage.hasItem(`font:${key}`);
+      await storage.setItemRaw("font:" + key, value, { ttl });
     },
   },
-
   favicons: {
-    async get(key: string) {
-      return await storage.getItemRaw(`favicon:${key}`);
-    },
+    ...createStorageAccessor("favicon:"),
     async set(key: string, value: Buffer, ttl = 86400 * 7) {
-      await storage.setItemRaw(`favicon:${key}`, value, { ttl });
-    },
-    async remove(key: string) {
-      await storage.removeItem(`favicon:${key}`);
-    },
-    async has(key: string) {
-      return await storage.hasItem(`favicon:${key}`);
+      await storage.setItemRaw("favicon:" + key, value, { ttl });
     },
   },
 

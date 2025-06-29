@@ -38,7 +38,11 @@ async function tryManifestIcons(domain: string): Promise<Buffer | null> {
   for (const manifestPath of manifestPaths) {
     try {
       const response = await fetch(`https://${domain}${manifestPath}`, {
-        headers: { "User-Agent": "Mozilla/5.0 Favicon Extractor" },
+        headers: {
+          "User-Agent": "Mozilla/5.0 Favicon Extractor",
+          Accept: "application/json,application/manifest+json",
+        },
+        signal: AbortSignal.timeout(5000), // 5 second timeout
       });
 
       if (!response.ok) continue;
@@ -105,7 +109,10 @@ async function tryAppleTouchIcons(domain: string): Promise<Buffer | null> {
 
   for (const path of applePaths) {
     try {
-      const response = await fetch(`https://${domain}${path}`);
+      const response = await fetch(`https://${domain}${path}`, {
+        headers: { Accept: "image/*" },
+        signal: AbortSignal.timeout(3000), // 3 second timeout for images
+      });
       if (
         response.ok &&
         response.headers.get("content-type")?.startsWith("image/")
@@ -126,7 +133,11 @@ async function tryAppleTouchIcons(domain: string): Promise<Buffer | null> {
 async function tryHTMLFaviconTags(domain: string): Promise<Buffer | null> {
   try {
     const response = await fetch(`https://${domain}`, {
-      headers: { "User-Agent": "Mozilla/5.0 Favicon Extractor" },
+      headers: {
+        "User-Agent": "Mozilla/5.0 Favicon Extractor",
+        Accept: "text/html,application/xhtml+xml",
+      },
+      signal: AbortSignal.timeout(8000), // 8 second timeout for HTML
     });
 
     if (!response.ok) return null;
@@ -253,7 +264,10 @@ async function tryDirectPaths(domain: string): Promise<Buffer | null> {
 
   for (const path of directPaths) {
     try {
-      const response = await fetch(`https://${domain}${path}`);
+      const response = await fetch(`https://${domain}${path}`, {
+        headers: { Accept: "image/*" },
+        signal: AbortSignal.timeout(2000), // 2 second timeout for direct paths
+      });
       if (
         response.ok &&
         response.headers.get("content-type")?.includes("image")
@@ -269,7 +283,7 @@ async function tryDirectPaths(domain: string): Promise<Buffer | null> {
 }
 
 /**
- * Optimize favicon using Sharp
+ * Memory-efficient favicon optimization with Sharp
  */
 async function optimizeWithSharp(
   faviconBuffer: Buffer,
@@ -277,15 +291,30 @@ async function optimizeWithSharp(
 ): Promise<Buffer> {
   const sharp = await import("sharp");
 
-  return await sharp
-    .default(faviconBuffer)
-    .resize(targetSize, targetSize, {
-      fit: "contain",
-      background: { r: 0, g: 0, b: 0, alpha: 0 },
-    } satisfies SharpOptions)
-    .sharpen()
-    .png({ quality: 90 })
-    .toBuffer();
+  // Memory-efficient processing
+  const processor = sharp.default(faviconBuffer, {
+    sequentialRead: true, // Better for memory usage
+    limitInputPixels: 16777216, // 4096x4096 max
+  });
+
+  try {
+    return await processor
+      .resize(targetSize, targetSize, {
+        fit: "contain",
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      } satisfies SharpOptions)
+      .sharpen({ sigma: 0.5, m1: 1.0, m2: 2.0 }) // Light sharpening with object parameters
+      .png({
+        quality: 90,
+        compressionLevel: 6, // Balance between size and speed
+        progressive: false, // Faster processing
+        palette: targetSize <= 32, // Use palette for small icons
+      })
+      .toBuffer();
+  } finally {
+    // Cleanup Sharp instance
+    processor.destroy();
+  }
 }
 
 /**
@@ -331,30 +360,39 @@ async function generateDefaultFavicon(
 }
 
 /**
- * Main favicon extraction function
+ * Main favicon extraction function (optimized parallel execution)
  */
 async function getFavicon(domain: string, size: number = 32): Promise<Buffer> {
   // Clean domain
   const cleanDomain = domain.replace(/^https?:\/\//, "").replace(/\/$/, "");
 
-  // Try sources in quality priority order
-  const sources = [
-    () => tryManifestIcons(cleanDomain),
-    () => tryAppleTouchIcons(cleanDomain),
-    () => tryHTMLFaviconTags(cleanDomain),
-    () => tryDirectPaths(cleanDomain),
+  // Execute all sources in parallel for maximum speed
+  const sourcePromises = [
+    tryManifestIcons(cleanDomain),
+    tryAppleTouchIcons(cleanDomain),
+    tryHTMLFaviconTags(cleanDomain),
+    tryDirectPaths(cleanDomain),
   ];
 
-  for (const source of sources) {
-    try {
-      const favicon = await source();
-      if (favicon && favicon.length > 100) {
-        // Basic validation
-        return await optimizeWithSharp(favicon, size);
+  // Use Promise.allSettled to get all results without failing fast
+  const results = await Promise.allSettled(sourcePromises);
+
+  // Process results in quality priority order
+  const priorities = [0, 1, 2, 3]; // Manifest, Apple Touch, HTML, Direct paths
+
+  for (const priority of priorities) {
+    const result = results[priority];
+    if (
+      result.status === "fulfilled" &&
+      result.value &&
+      result.value.length > 100
+    ) {
+      try {
+        return await optimizeWithSharp(result.value, size);
+      } catch {
+        // Optimization failed, try next source
+        continue;
       }
-    } catch {
-      // Favicon source failed - try next source
-      continue;
     }
   }
 

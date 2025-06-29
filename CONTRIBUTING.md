@@ -239,9 +239,33 @@ export const myPlugin = (): BetterAuthPlugin => {
 When working with storage:
 
 1. Use the unified storage system in `storage.ts`
-2. Implement proper caching strategies
+2. Implement proper caching strategies with 24-hour defaults
 3. Handle storage failures gracefully
 4. Consider performance implications
+
+### Caching Best Practices
+
+- Use the standardized 24-hour cache TTL for most operations
+- Static assets (fonts, favicons) can use longer cache periods (7-30 days)
+- Always include `X-Cache` headers to indicate cache status
+- Consider cache invalidation strategies for dynamic content
+
+```typescript
+// ✅ Good: Proper caching implementation
+await cacheStorage.screenshots.set(cacheKey, screenshotBuffer); // Uses 24h default
+return new Response(screenshotBuffer, {
+  headers: {
+    "Content-Type": contentType,
+    "Cache-Control": "public, max-age=86400", // 24 hours
+    "X-Cache": "MISS",
+  },
+});
+
+// ❌ Bad: No caching consideration
+return new Response(screenshotBuffer, {
+  headers: { "Content-Type": contentType },
+});
+```
 
 ## 🚦 Rate Limiting
 
