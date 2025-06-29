@@ -134,3 +134,4 @@ dist
 .output
 .data
 .database.sqlite
+.vercel
