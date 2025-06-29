@@ -25,8 +25,8 @@ A high-performance image proxy and web services toolkit built with modern TypeSc
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm (recommended) or npm
+- Node.js 22+
+- pnpm 10+ (recommended) or npm
 
 ### Installation
 
@@ -77,7 +77,7 @@ All other configurations are optional and will gracefully degrade:
 
 ```env
 # Database (defaults to SQLite)
-DATABASE_URL=postgresql://user:password@localhost:5432/lens
+DATABASE_URL=postgresql://postgres:password@localhost:5432/lens
 
 # OAuth Providers
 GITHUB_CLIENT_ID=your-github-client-id
@@ -94,6 +94,12 @@ REDIS_URL=redis://localhost:6379
 # but not for hosting due to serverless limitations
 # VERCEL_BLOB_READ_WRITE_TOKEN=your-token
 # CLOUDFLARE_R2_ACCOUNT_ID=your-account-id
+
+# MinIO S3-compatible storage (for Docker Compose development)
+# S3_ENDPOINT=http://localhost:9000
+# S3_ACCESS_KEY=minioadmin
+# S3_SECRET_KEY=minioadmin
+# S3_BUCKET=lens-storage
 ```
 
 See `env.example` for all available options.
@@ -281,7 +287,7 @@ Lens is built with modern web standards and follows clean architecture principle
 
 ### Core Technologies
 
-- **Runtime**: Node.js with Nitro
+- **Runtime**: Node.js 22+ with Nitro
 - **Language**: TypeScript with strict type safety
 - **Authentication**: Better-auth with plugin system
 - **Image Processing**: IPX with Sharp
@@ -298,6 +304,17 @@ Lens is built with modern web standards and follows clean architecture principle
 - **Performance First**: Optimized for speed and efficiency
 
 ## 🚀 Deployment
+
+### Docker Compose (Recommended for Development)
+
+For local development with full service stack, see [`docker-compose.yml`](docker-compose.yml):
+
+```bash
+# Start all services (app, PostgreSQL, Redis, MinIO)
+docker-compose up -d
+```
+
+The setup includes PostgreSQL, Redis, MinIO, and the main application on port 3000.
 
 ### Nitro Deployment
 
@@ -317,11 +334,12 @@ This application requires a **persistent runtime environment** and **does not su
 
 - Traditional VPS/Dedicated servers
 - Docker containers
+- **Docker Compose** (for development and production)
 - Platform.sh
 - Render.com
 - DigitalOcean App Platform
 - Heroku
-- Any platform with persistent Node.js runtime
+- Any platform with persistent Node.js 22+ runtime
 
 **Note:** While Railway and Zeabur may work with Nixpacks, they are not officially supported by Nitro. Use at your own discretion.
 
@@ -336,34 +354,11 @@ Nixpacks provides automatic deployment for platforms including:
 - Render.com
 - And other Nixpacks-compatible platforms
 
-The included `nixpacks.toml` configuration provides:
+See [`nixpacks.toml`](nixpacks.toml) for build configuration. The setup includes:
 
-- **System Dependencies**: vips, chromium, fontconfig for image processing and screenshot capabilities
-- **Build Tools**: python3, gcc, gnumake for native module compilation
-- **Package Manager**: pnpm for efficient dependency management
-
-```toml
-# nixpacks.toml
-[phases.setup]
-nixPkgs = [
-  "...",
-  "vips",        # Image processing (Sharp/IPX)
-  "chromium",    # Screenshot service (Playwright)
-  "fontconfig",  # Font rendering
-  "python3",     # Native modules
-  "gcc",
-  "gnumake"
-]
-
-[phases.install]
-cmds = ["pnpm install"]
-
-[phases.build]
-cmds = ["pnpm build"]
-
-[start]
-cmd = "pnpm preview"
-```
+- **Node.js 22** runtime with **pnpm 10+** package management
+- **System dependencies** for image processing and screenshot capabilities
+- **Optimized builds** with runtime image separation for smaller deployment size
 
 ### Why Not Serverless?
 

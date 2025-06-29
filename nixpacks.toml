@@ -1,27 +1,23 @@
 # Nixpacks Configuration for Nitro App
 
+[variables]
+PLAYWRIGHT_BROWSERS_PATH = "/app/.cache/ms-playwright"
+
 [phases.setup]
-nixPkgs = [
-  "...", # Extend auto-detected packages
-  # Required for sharp image processing
-  "vips",
-  # Required for playwright/chromium
-  "chromium",
-  "fontconfig",
-  # Required for native modules compilation (better-sqlite3)
-  "python3",
-  "gcc",
-  "gnumake"
-]
+nixPkgs = ["...", "vips", "fontconfig", "python3", "gcc", "gnumake"]
 
 [phases.install]
-cmds = ["pnpm install"]
+onlyIncludeFiles = ["package.json", "pnpm-lock.yaml", "pnpm-workspace.yaml"]
+cmds = ["pnpm install --frozen-lockfile --ignore-scripts"]
 
 [phases.build]
 cmds = [
-  "pnpm exec playwright install chromium --with-deps",
-  "pnpm build"
+  "pnpm exec playwright install chromium-headless-shell --with-deps",
+  "...",
+  "pnpm store prune",
 ]
 
 [start]
-cmd = "pnpm preview" 
+runImage = "node:22-bookworm"
+onlyIncludeFiles = [".output", ".cache/ms-playwright"]
+cmd = "node .output/server/index.mjs"

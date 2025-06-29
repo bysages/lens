@@ -6,11 +6,13 @@ Thank you for your interest in contributing to Lens! This guide focuses on devel
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm 8+ (recommended package manager)
+- Node.js 22+
+- pnpm 10+ (recommended package manager)
 - Git
 
 ### Setup Development Environment
+
+#### Option 1: Local Development
 
 ```bash
 # Fork and clone the repository
@@ -28,6 +30,22 @@ echo "BETTER_AUTH_SECRET=$(openssl rand -base64 32)" >> .env
 
 # Start development server
 pnpm dev
+```
+
+#### Option 2: Docker Compose (Full Stack)
+
+For development with complete service stack:
+
+```bash
+# Fork and clone the repository
+git clone https://github.com/yourusername/lens.git
+cd lens
+
+# Start all services
+docker-compose up -d
+
+# The application will be available at http://localhost:3000
+# Services included: PostgreSQL, Redis, MinIO, and the main app
 ```
 
 ## 📁 Project Structure
@@ -156,6 +174,8 @@ pnpm exec basis version patch    # Version management
 
 ### Local Testing Setup
 
+#### Local Development Testing
+
 ```bash
 # Start development server
 pnpm dev
@@ -165,6 +185,22 @@ curl "http://localhost:3000/img/w_200/https://picsum.photos/400"
 
 # Test authentication flows
 curl -H "x-api-key: test_key" "http://localhost:3000/favicon?url=example.com"
+```
+
+#### Docker Compose Testing
+
+```bash
+# Start full stack
+docker-compose up -d
+
+# Wait for services to be ready, then test
+curl "http://localhost:3000/img/w_200/https://picsum.photos/400"
+
+# Test with database and Redis caching
+curl "http://localhost:3000/screenshot?url=https://example.com"
+
+# Check service health
+docker-compose ps
 ```
 
 ## 📝 Code Style
