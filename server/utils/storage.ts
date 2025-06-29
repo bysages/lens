@@ -25,18 +25,10 @@ function detectDatabase() {
 
 function createRedisDriver() {
   if (!process.env.REDIS_URL) return null;
-  try {
-    const url = new URL(process.env.REDIS_URL);
-    return redisDriver({
-      base: "lens",
-      host: url.hostname,
-      port: parseInt(url.port) || 6379,
-      password: url.password || undefined,
-      ...(url.protocol === "rediss:" && { tls: { rejectUnauthorized: false } }),
-    });
-  } catch {
-    return null;
-  }
+  return redisDriver({
+    base: "lens",
+    url: process.env.REDIS_URL,
+  });
 }
 
 function createMinIODriver() {
@@ -76,10 +68,8 @@ function createCacheStorage() {
   const layers: Driver[] = [memory()];
 
   // Add Redis if available
-  if (process.env.REDIS_URL) {
-    const redis = createRedisDriver();
-    if (redis) layers.push(redis);
-  }
+  const redis = createRedisDriver();
+  if (redis) layers.push(redis);
 
   // Add MinIO/S3 if available
   const minio = createMinIODriver();
@@ -274,16 +264,15 @@ export function useCache() {
 }
 
 /**
- * Simple storage health check
+ * Storage health check with minimal overhead
  */
 export async function isStorageHealthy(): Promise<boolean> {
   try {
-    const testKey = "__health_check__";
-    const testValue = Date.now().toString();
-    await storage.setItem(testKey, testValue);
-    const retrieved = await storage.getItem(testKey);
-    await storage.removeItem(testKey);
-    return retrieved === testValue;
+    // Use a lightweight operation - just test if storage is responsive
+    const testKey = `health:${Date.now()}`;
+    await storage.setItem(testKey, "ok", { ttl: 5 }); // 5 second TTL, auto cleanup
+    const result = await storage.getItem(testKey);
+    return result === "ok";
   } catch {
     return false;
   }

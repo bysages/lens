@@ -18,7 +18,10 @@ nixPkgs = [
 cmds = ["pnpm install"]
 
 [phases.build]
-cmds = ["pnpm build"]
+cmds = [
+  "pnpm exec playwright install chromium --with-deps",
+  "pnpm build"
+]
 
 [start]
 cmd = "pnpm preview" 

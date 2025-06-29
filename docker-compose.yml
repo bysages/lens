@@ -1,0 +1,123 @@
+services:
+  # Main application service
+  lens:
+    image: bysages/lens:latest
+    container_name: lens-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://lens:${POSTGRES_PASSWORD:-lens123}@postgres:5432/lens
+      - REDIS_URL=redis://redis:6379
+      - MINIO_ENDPOINT=http://minio:9000
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY:-minioadmin}
+      - MINIO_BUCKET=lens
+      - MINIO_REGION=us-east-1
+      - BETTER_AUTH_SECRET=${BETTER_AUTH_SECRET:-your-secret-key-change-this}
+      - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
+      - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
+      - ALLOWED_DOMAINS=${ALLOWED_DOMAINS:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    networks:
+      - lens-network
+    volumes:
+      - lens-cache:/app/.cache
+      - lens-uploads:/app/uploads
+
+  # PostgreSQL database
+  postgres:
+    image: postgres:16-alpine
+    container_name: lens-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=lens
+      - POSTGRES_USER=lens
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-lens123}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - lens-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lens -d lens"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Redis cache
+  redis:
+    image: redis:7-alpine
+    container_name: lens-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis-data:/data
+    networks:
+      - lens-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MinIO S3-compatible storage
+  minio:
+    image: minio/minio:latest
+    container_name: lens-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ACCESS_KEY:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_SECRET_KEY:-minioadmin}
+    volumes:
+      - minio-data:/data
+    networks:
+      - lens-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 20s
+      retries: 3
+
+  # MinIO bucket initialization
+  minio-init:
+    image: minio/mc:latest
+    container_name: lens-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - lens-network
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set minio http://minio:9000 ${MINIO_ACCESS_KEY:-minioadmin} ${MINIO_SECRET_KEY:-minioadmin};
+      mc mb minio/lens --ignore-existing;
+      mc anonymous set public minio/lens;
+      exit 0;
+      "
+
+networks:
+  lens-network:
+    driver: bridge
+    name: lens-network
+
+volumes:
+  postgres-data:
+    name: lens-postgres-data
+  redis-data:
+    name: lens-redis-data
+  minio-data:
+    name: lens-minio-data
+  lens-cache:
+    name: lens-cache
+  lens-uploads:
+    name: lens-uploads
