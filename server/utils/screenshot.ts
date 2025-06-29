@@ -10,6 +10,32 @@ import { cacheStorage } from "./storage";
 import { pluginRateLimits } from "./rate-limits";
 import { registerCleanup } from "./memory";
 
+// Environment detection helpers
+const isVercelEnvironment = () => {
+  return !!(process.env.VERCEL || process.env.VERCEL_ENV);
+};
+
+const isDevelopment = () => {
+  return process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
+};
+
+// Dynamic import for @sparticuz/chromium (only in Vercel environment)
+const getSparticuzChromium = async () => {
+  if (isVercelEnvironment()) {
+    try {
+      const { default: chromium } = await import("@sparticuz/chromium");
+      return chromium;
+    } catch (error) {
+      console.warn(
+        "@sparticuz/chromium not available, using playwright chromium:",
+        error,
+      );
+      return null;
+    }
+  }
+  return null;
+};
+
 // Screenshot configuration interface
 interface ScreenshotOptions {
   url: string;
@@ -178,63 +204,82 @@ class OptimizedBrowserPool {
   private async createBrowser(
     options: ScreenshotOptions,
   ): Promise<PooledBrowser> {
-    const isDevelopment =
-      process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
-
     // Browser selection priority
     const browserConfig = process.env.PLAYWRIGHT_BROWSER_CONFIG || "auto";
 
     let browser: Browser;
 
     try {
-      // Standard chromium with aggressive performance optimizations and anti-detection
-      const launchOptions: Parameters<typeof playwright.launch>[0] = {
-        headless: true,
-        args: [
-          "--no-sandbox",
-          "--disable-setuid-sandbox",
-          "--disable-dev-shm-usage",
-          "--disable-web-security",
-          "--disable-background-timer-throttling",
-          "--disable-backgrounding-occluded-windows",
-          "--disable-renderer-backgrounding",
-          "--disable-features=TranslateUI,BlinkGenPropertyTrees,VizDisplayCompositor",
-          "--disable-background-networking",
-          "--disable-default-apps",
-          "--disable-extensions",
-          "--disable-plugins",
-          "--disable-sync",
-          "--hide-scrollbars",
-          "--mute-audio",
-          "--no-default-browser-check",
-          "--no-first-run",
-          "--disable-gpu",
-          "--disable-gpu-sandbox",
-          "--disable-blink-features=AutomationControlled",
-          "--disable-features=VizDisplayCompositor",
-          "--disable-ipc-flooding-protection",
-          "--disable-dev-tools",
-          "--disable-hang-monitor",
-          "--disable-prompt-on-repost",
-          "--disable-domain-reliability",
-          "--disable-component-extensions-with-background-pages",
-          "--disable-client-side-phishing-detection",
-          "--disable-background-mode",
-        ],
-      };
+      // Check if we're in Vercel environment
+      if (isVercelEnvironment()) {
+        const sparticuzChromium = await getSparticuzChromium();
 
-      // Try chromium-headless-shell first for better performance
-      if (browserConfig === "auto" || browserConfig === "headless-shell") {
-        try {
-          browser = await playwright.launch({
-            ...launchOptions,
-            channel: "chromium-headless-shell",
-          });
-        } catch {
+        if (sparticuzChromium) {
+          // Use @sparticuz/chromium in Vercel environment (follow official best practices)
+          const launchOptions: Parameters<typeof playwright.launch>[0] = {
+            headless: true,
+            executablePath: await sparticuzChromium.executablePath(),
+            args: sparticuzChromium.args, // Use optimized args from @sparticuz/chromium
+          };
+
           browser = await playwright.launch(launchOptions);
+        } else {
+          // Fallback to standard playwright in Vercel if @sparticuz/chromium failed
+          browser = await playwright.launch({
+            headless: true,
+            args: ["--no-sandbox", "--disable-setuid-sandbox"],
+          });
         }
       } else {
-        browser = await playwright.launch(launchOptions);
+        // Standard chromium with aggressive performance optimizations for other environments
+        const launchOptions: Parameters<typeof playwright.launch>[0] = {
+          headless: true,
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox",
+            "--disable-dev-shm-usage",
+            "--disable-web-security",
+            "--disable-background-timer-throttling",
+            "--disable-backgrounding-occluded-windows",
+            "--disable-renderer-backgrounding",
+            "--disable-features=TranslateUI,BlinkGenPropertyTrees,VizDisplayCompositor",
+            "--disable-background-networking",
+            "--disable-default-apps",
+            "--disable-extensions",
+            "--disable-plugins",
+            "--disable-sync",
+            "--hide-scrollbars",
+            "--mute-audio",
+            "--no-default-browser-check",
+            "--no-first-run",
+            "--disable-gpu",
+            "--disable-gpu-sandbox",
+            "--disable-blink-features=AutomationControlled",
+            "--disable-features=VizDisplayCompositor",
+            "--disable-ipc-flooding-protection",
+            "--disable-dev-tools",
+            "--disable-hang-monitor",
+            "--disable-prompt-on-repost",
+            "--disable-domain-reliability",
+            "--disable-component-extensions-with-background-pages",
+            "--disable-client-side-phishing-detection",
+            "--disable-background-mode",
+          ],
+        };
+
+        // Try chromium-headless-shell first for better performance
+        if (browserConfig === "auto" || browserConfig === "headless-shell") {
+          try {
+            browser = await playwright.launch({
+              ...launchOptions,
+              channel: "chromium-headless-shell",
+            });
+          } catch {
+            browser = await playwright.launch(launchOptions);
+          }
+        } else {
+          browser = await playwright.launch(launchOptions);
+        }
       }
     } catch {
       // Fallback: try with minimal configuration
@@ -245,7 +290,7 @@ class OptimizedBrowserPool {
         });
       } catch (fallbackError) {
         const errorMessage = `Browser launch failed: ${fallbackError instanceof Error ? fallbackError.message : "Unknown error"}`;
-        const installHint = isDevelopment
+        const installHint = isDevelopment()
           ? "Please install Playwright browsers: npx playwright install chromium-headless-shell chromium"
           : "Browser installation failed in production environment";
 

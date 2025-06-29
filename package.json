@@ -41,8 +41,9 @@
   "devDependencies": {
     "@better-auth/cli": "1.2.10",
     "@funish/basis": "0.0.5",
-    "@libsql/kysely-libsql": "^0.4.1",
+    "@libsql/kysely-libsql": "0.4.1",
     "@prettier/plugin-oxc": "0.0.4",
+    "@sparticuz/chromium": "137.0.1",
     "@types/node": "24.0.4",
     "@types/pg": "8.15.4",
     "@vercel/og": "0.6.8",

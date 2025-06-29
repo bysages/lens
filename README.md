@@ -1,6 +1,10 @@
 # Lens
 
-A high-performance image proxy and web services toolkit built with modern TypeScript. Lens provides a comprehensive suite of web utilities including image processing, screenshot capture, font serving, and more.
+![GitHub](https://img.shields.io/github/license/bysages/lens)
+![GitHub Actions](https://img.shields.io/github/actions/workflow/status/bysages/lens/docker-build.yml)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](https://www.contributor-covenant.org/version/2/1/code_of_conduct/)
+
+> A high-performance image proxy and web services toolkit built with modern TypeScript. Lens provides a comprehensive suite of web utilities including image processing, screenshot capture, font serving, and more.
 
 ## 🚀 Features
 
@@ -322,16 +326,17 @@ Lens is built with Nitro, which supports multiple deployment targets. For compre
 
 **⚠️ Platform Compatibility Notice:**
 
-This application requires a **persistent runtime environment** and **does not support serverless platforms** like:
+This application requires a **persistent runtime environment** for optimal performance. Most serverless platforms are not supported, with the following status:
 
-- ❌ Vercel (Functions)
+- ✅ **Vercel**
 - ❌ Cloudflare Workers/Pages
 - ❌ Netlify Functions
-- ❌ AWS Lambda
+- ❌ AWS Lambda (may work with custom layers, not officially supported)
 - ❌ Azure Functions
 
-**✅ Recommended platforms for persistent runtime:**
+**✅ Recommended platforms:**
 
+- **Vercel**
 - Traditional VPS/Dedicated servers
 - Docker containers
 - **Docker Compose** (for development and production)
@@ -362,7 +367,7 @@ See [`nixpacks.toml`](nixpacks.toml) for build configuration. The setup includes
 
 ### Why Not Serverless?
 
-This application requires features that are incompatible with serverless environments:
+This application requires features that are typically incompatible with serverless environments:
 
 1. **🏊‍♂️ Browser Pool Management**: Playwright browser instances need persistent memory and connection pooling
 2. **📦 Native Dependencies**: Sharp, better-sqlite3, and chromium require filesystem access and binary execution
@@ -370,7 +375,12 @@ This application requires features that are incompatible with serverless environ
 4. **💾 Persistent Storage**: Database connections and cache systems need persistent runtime
 5. **🎯 Connection Reuse**: Performance optimizations rely on keeping connections alive
 
-**Recommended Platforms**: Render.com, Platform.sh, DigitalOcean App Platform, Heroku, Traditional VPS
+**⚡ Vercel Exception**: While most serverless platforms cannot support this application, **Vercel is fully supported** through:
+
+- Automatic environment detection and fallback mechanisms
+- Native integration with Vercel's platform features
+
+**Recommended Platforms**: Vercel, Render.com, Platform.sh, DigitalOcean App Platform, Heroku, Traditional VPS
 
 ### Environment Variables
 

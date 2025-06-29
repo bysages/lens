@@ -1,5 +1,8 @@
 # Nixpacks Configuration for Nitro App
 
+[variables]
+NITRO_PRESET = "node_cluster"
+
 [phases.setup]
 nixPkgs = ["...", "vips", "fontconfig", "python3", "gcc", "gnumake"]
 

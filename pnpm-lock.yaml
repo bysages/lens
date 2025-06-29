@@ -17,11 +17,14 @@ importers:
         specifier: 0.0.5
         version: 0.0.5
       "@libsql/kysely-libsql":
-        specifier: ^0.4.1
+        specifier: 0.4.1
         version: 0.4.1(kysely@0.28.2)
       "@prettier/plugin-oxc":
         specifier: 0.0.4
         version: 0.0.4
+      "@sparticuz/chromium":
+        specifier: 137.0.1
+        version: 137.0.1
       "@types/node":
         specifier: 24.0.4
         version: 24.0.4
@@ -2143,6 +2146,13 @@ packages:
       }
     engines: { node: ">=18" }
 
+  "@sparticuz/chromium@137.0.1":
+    resolution:
+      {
+        integrity: sha512-9ixW23xjzIgSwBPLhWFOnrJNsnEw4dQWZqGzBCFGwGVuBPkNiJHO5VAGKezXj81J0wMYwP04tLlJFjsN5z4ROw==,
+      }
+    engines: { node: ">=20.11.0" }
+
   "@speed-highlight/core@1.2.7":
     resolution:
       {
@@ -2511,6 +2521,45 @@ packages:
       {
         integrity: sha512-+gFfDkR8pj4/TrWCGUGWmJIkBwuxPS5F+a5yWjOHQt2hHvNZd5YLzadjmDUtFmMM4y429bnKLa8bYBMHcYdnQA==,
       }
+
+  bare-fs@4.1.5:
+    resolution:
+      {
+        integrity: sha512-1zccWBMypln0jEE05LzZt+V/8y8AQsQQqxtklqaIyg5nu6OAYFhZxPXinJTSG+kU5qyNmeLgcn9AW7eHiCHVLA==,
+      }
+    engines: { bare: ">=1.16.0" }
+    peerDependencies:
+      bare-buffer: "*"
+    peerDependenciesMeta:
+      bare-buffer:
+        optional: true
+
+  bare-os@3.6.1:
+    resolution:
+      {
+        integrity: sha512-uaIjxokhFidJP+bmmvKSgiMzj2sV5GPHaZVAIktcxcpCyBFFWO+YlikVAdhmUo2vYFvFhOXIAlldqV29L8126g==,
+      }
+    engines: { bare: ">=1.14.0" }
+
+  bare-path@3.0.0:
+    resolution:
+      {
+        integrity: sha512-tyfW2cQcB5NN8Saijrhqn0Zh7AnFNsnczRcuWODH0eYAXBsJ5gVxAUuNr7tsHSC6IZ77cA0SitzT+s47kot8Mw==,
+      }
+
+  bare-stream@2.6.5:
+    resolution:
+      {
+        integrity: sha512-jSmxKJNJmHySi6hC42zlZnq00rga4jjxcgNZjY9N5WlOe/iOoGRtdwGsHzQv2RlH2KOYMwGUXhf2zXd32BA9RA==,
+      }
+    peerDependencies:
+      bare-buffer: "*"
+      bare-events: "*"
+    peerDependenciesMeta:
+      bare-buffer:
+        optional: true
+      bare-events:
+        optional: true
 
   base64-js@0.0.8:
     resolution:
@@ -3756,6 +3805,18 @@ packages:
       {
         integrity: sha512-GRnmB5gPyJpAhTQdSZTSp9uaPSvl09KoYcMQtsB9rQoOmzs9dH6ffeccH+Z+cv6P68Hu5bC6JjRh4Ah/mHSNRw==,
       }
+
+  follow-redirects@1.15.9:
+    resolution:
+      {
+        integrity: sha512-gew4GsXizNgdoRyqmyfMHyAmXsZDk6mHkSxZFCzW9gwlbtOW44CDtYavM+y+72qD/Vq2l550kMF52DT8fOLJqQ==,
+      }
+    engines: { node: ">=4.0" }
+    peerDependencies:
+      debug: "*"
+    peerDependenciesMeta:
+      debug:
+        optional: true
 
   foreground-child@3.3.1:
     resolution:
@@ -6138,6 +6199,12 @@ packages:
         integrity: sha512-090nwYJDmlhwFwEW3QQl+vaNnxsO2yVsd45eTKRBzSzu+hlb1w2K9inVq5b0ngXuLVqQ4ApvsUHHnu/zQNkWAg==,
       }
 
+  tar-fs@3.0.10:
+    resolution:
+      {
+        integrity: sha512-C1SwlQGNLe/jPNqapK8epDsXME7CAJR5RL3GcE6KWx1d9OUByzoHVcbu1VPI8tevg9H8Alae0AApHHFGzrD5zA==,
+      }
+
   tar-stream@2.2.0:
     resolution:
       {
@@ -8072,6 +8139,14 @@ snapshots:
 
   "@sindresorhus/merge-streams@2.3.0": {}
 
+  "@sparticuz/chromium@137.0.1":
+    dependencies:
+      follow-redirects: 1.15.9
+      tar-fs: 3.0.10
+    transitivePeerDependencies:
+      - bare-buffer
+      - debug
+
   "@speed-highlight/core@1.2.7": {}
 
   "@trysound/sax@0.2.0": {}
@@ -8336,6 +8411,28 @@ snapshots:
   balanced-match@1.0.2: {}
 
   bare-events@2.5.4:
+    optional: true
+
+  bare-fs@4.1.5:
+    dependencies:
+      bare-events: 2.5.4
+      bare-path: 3.0.0
+      bare-stream: 2.6.5(bare-events@2.5.4)
+    optional: true
+
+  bare-os@3.6.1:
+    optional: true
+
+  bare-path@3.0.0:
+    dependencies:
+      bare-os: 3.6.1
+    optional: true
+
+  bare-stream@2.6.5(bare-events@2.5.4):
+    dependencies:
+      streamx: 2.22.1
+    optionalDependencies:
+      bare-events: 2.5.4
     optional: true
 
   base64-js@0.0.8: {}
@@ -9034,6 +9131,8 @@ snapshots:
       unicorn-magic: 0.1.0
 
   fn.name@1.1.0: {}
+
+  follow-redirects@1.15.9: {}
 
   foreground-child@3.3.1:
     dependencies:
@@ -10596,6 +10695,16 @@ snapshots:
       mkdirp-classic: 0.5.3
       pump: 3.0.3
       tar-stream: 2.2.0
+
+  tar-fs@3.0.10:
+    dependencies:
+      pump: 3.0.3
+      tar-stream: 3.1.7
+    optionalDependencies:
+      bare-fs: 4.1.5
+      bare-path: 3.0.0
+    transitivePeerDependencies:
+      - bare-buffer
 
   tar-stream@2.2.0:
     dependencies:
