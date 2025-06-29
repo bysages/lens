@@ -14,6 +14,6 @@ cmds = [
 ]
 
 [start]
-runImage = "node:22-bookworm"
+runImage = "mcr.microsoft.com/playwright:v1.53.0-noble"
 onlyIncludeFiles = [".output"]
-cmd = "npx playwright@1.53.1 install chromium-headless-shell --with-deps && node .output/server/index.mjs"
+cmd = "node .output/server/index.mjs"

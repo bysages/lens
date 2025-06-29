@@ -2,10 +2,15 @@ services:
   # Main application service
   lens:
     image: bysages/lens:latest
+    # Uncomment to build locally instead of using pre-built image:
+    # build: .
     container_name: lens-app
     restart: unless-stopped
     ports:
       - "3000:3000"
+    # Playwright recommended Docker configuration
+    init: true
+    ipc: host
     environment:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://lens:${POSTGRES_PASSWORD:-lens123}@postgres:5432/lens
@@ -19,6 +24,8 @@ services:
       - GITHUB_CLIENT_ID=${GITHUB_CLIENT_ID:-}
       - GITHUB_CLIENT_SECRET=${GITHUB_CLIENT_SECRET:-}
       - ALLOWED_DOMAINS=${ALLOWED_DOMAINS:-}
+      # Playwright configuration for official image
+      - PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
     depends_on:
       postgres:
         condition: service_healthy
@@ -31,6 +38,7 @@ services:
     volumes:
       - lens-cache:/app/.cache
       - lens-uploads:/app/uploads
+      # Playwright browsers are pre-installed in official image at /ms-playwright
 
   # PostgreSQL database
   postgres:
