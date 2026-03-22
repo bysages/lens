@@ -1,6 +1,8 @@
+import { nitro } from "nitro/vite";
 import { defineConfig } from "vite-plus";
 
 export default defineConfig({
+  plugins: [nitro()],
   lint: {
     options: {
       typeAware: true,
@@ -8,7 +10,9 @@ export default defineConfig({
     },
   },
   fmt: {
-    sortImports: {},
+    sortImports: {
+      type: "natural",
+    },
     sortPackageJson: true,
     sortTailwindcss: {},
   },

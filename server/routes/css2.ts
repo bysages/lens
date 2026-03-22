@@ -1,5 +1,4 @@
-import { defineHandler } from "nitro";
-import { HTTPError, getQuery, getRequestURL } from "nitro/h3";
+import { defineHandler, HTTPError, getQuery, getRequestURL } from "nitro/h3";
 
 import { generateFontCSS } from "../utils/fonts/css";
 

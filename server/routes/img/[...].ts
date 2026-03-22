@@ -1,5 +1,5 @@
 import { createIPX, ipxHttpStorage, ipxFSStorage, createIPXFetchHandler } from "ipx";
-import { defineHandler } from "nitro";
+import { defineHandler } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 import { env } from "std-env";

@@ -1,6 +1,5 @@
 import * as cheerio from "cheerio";
-import { defineHandler } from "nitro";
-import { HTTPError, getQuery } from "nitro/h3";
+import { defineHandler, HTTPError, getQuery } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 import sharp from "sharp";

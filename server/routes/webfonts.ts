@@ -1,5 +1,4 @@
-import { defineHandler } from "nitro";
-import { getQuery } from "nitro/h3";
+import { defineHandler, getQuery } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 

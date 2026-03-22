@@ -1,9 +1,8 @@
-import { defineHandler } from "nitro";
-import { HTTPError, getQuery } from "nitro/h3";
+import chromium from "@sparticuz/chromium";
+import { defineHandler, HTTPError, getQuery } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 import { chromium as playwright, type Browser, type Page, type BrowserContext } from "playwright";
-import { env } from "std-env";
 
 export interface ScreenshotQuery {
   url: string;
@@ -33,28 +32,21 @@ export async function getBrowser(): Promise<Browser> {
   }
 
   browserInitializing = (async () => {
-    const isVercel = !!env.VERCEL || !!env.VERCEL_ENV;
-
-    if (isVercel) {
-      try {
-        const { default: chromium } = await import("@sparticuz/chromium");
-        browserInstance = await playwright.launch({
-          headless: true,
-          executablePath: await chromium.executablePath(),
-          args: chromium.args,
-        });
-        return browserInstance;
-      } catch {
-        // Fallback to standard playwright
-      }
+    try {
+      browserInstance = await playwright.launch({
+        headless: true,
+        executablePath: await chromium.executablePath(),
+        args: chromium.args,
+      });
+      return browserInstance;
+    } catch {
+      // Fallback to standard playwright
+      browserInstance = await playwright.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
+      });
+      return browserInstance;
     }
-
-    browserInstance = await playwright.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-    });
-
-    return browserInstance;
   })();
 
   return browserInitializing;
