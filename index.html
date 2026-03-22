@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Lens</title>
+    <link rel="icon" href="/favicon.ico" />
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: #fff;
+        color: #000;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+      }
+
+      .container {
+        max-width: 700px;
+        width: 100%;
+      }
+
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px;
+      }
+
+      h1 {
+        font-size: 48px;
+        font-weight: 700;
+        letter-spacing: -1px;
+        margin: 0;
+      }
+
+      .header-links {
+        display: flex;
+        gap: 16px;
+      }
+
+      .header-links a {
+        font-size: 14px;
+        color: #666;
+        text-decoration: none;
+      }
+
+      .header-links a:hover {
+        color: #000;
+        text-decoration: underline;
+      }
+
+      p {
+        font-size: 16px;
+        line-height: 1.6;
+        color: #666;
+        margin-bottom: 32px;
+      }
+
+      .links {
+        margin-top: 24px;
+        padding-top: 16px;
+        border-top: 1px solid #eee;
+      }
+
+      .links a {
+        display: block;
+        font-family: "Monaco", "Menlo", monospace;
+        font-size: 13px;
+        color: #000;
+        text-decoration: none;
+        margin-bottom: 8px;
+      }
+
+      .links a:hover {
+        text-decoration: underline;
+      }
+
+      .links strong {
+        display: block;
+        margin-top: 16px;
+        margin-bottom: 8px;
+        font-size: 16px;
+        color: #333;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Lens</h1>
+        <div class="header-links">
+          <a href="https://github.com/bysages/lens">GitHub</a>
+          <a href="https://www.bysages.com/">Website</a>
+        </div>
+      </div>
+
+      <p>
+        High-performance image proxy and web services toolkit with IPX, screenshot capture, font
+        serving, and OG image generation.
+      </p>
+
+      <div class="links">
+        <strong>Font Service</strong>
+        <a href="/css?family=Roboto:wght@400;700&display=swap">/css?family=Roboto:wght@400;700</a>
+        <a href="/css?family=Roboto:wght@400;700|Open+Sans:wght@300;400;600&display=swap"
+          >/css?family=Roboto:wght@400;700|Open+Sans:wght@300;400;600</a
+        >
+        <a href="/css2?family=Inter:wght@400;700&family=Roboto:wght@300;400&display=swap"
+          >/css2?family=Inter:wght@400;700&family=Roboto:wght@300;400</a
+        >
+        <a href="/webfonts?sort=popularity">/webfonts?sort=popularity</a>
+
+        <strong>Image Processing</strong>
+        <a href="/img/w_300/https://placehold.co/600x400/png">/img/w_300/{image_url}</a>
+        <a href="/img/s_200x200,q_80/https://placehold.co/600x400/png"
+          >/img/s_200x200,q_80/{image_url}</a
+        >
+
+        <strong>Screenshot & OG</strong>
+        <a href="/screenshot?url=https://example.com">/screenshot?url=https://example.com</a>
+        <a href="/og?title=Hello&theme=blue">/og?title=Hello&theme=blue</a>
+        <a href="/favicon?url=github.com">/favicon?url=github.com</a>
+
+        <strong>API Documentation</strong>
+        <a href="/_docs/scalar">/_docs/scalar (Scalar UI - Interactive API docs)</a>
+        <a href="/_docs/swagger">/_docs/swagger (Swagger UI)</a>
+        <a href="/_docs/openapi.json">/_docs/openapi.json (OpenAPI specification)</a>
+      </div>
+    </div>
+  </body>
+</html>
