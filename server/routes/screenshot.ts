@@ -4,7 +4,7 @@ import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 import { chromium as playwright, type Browser, type Page, type BrowserContext } from "playwright";
 
-import { IMAGE_TTL } from "../utils/constants";
+import { CACHE_MEDIUM, SCREENSHOT_TTL } from "../utils/constants";
 
 export interface ScreenshotQuery {
   url: string;
@@ -145,7 +145,7 @@ export default defineHandler(async (event) => {
     event.res.headers.set("X-Cache", "HIT");
     const contentType = format === "jpeg" ? "image/jpeg" : "image/png";
     event.res.headers.set("Content-Type", contentType);
-    event.res.headers.set("Cache-Control", `public, max-age=${IMAGE_TTL}`);
+    event.res.headers.set("Cache-Control", CACHE_MEDIUM);
     return Buffer.from(cached);
   }
 
@@ -175,13 +175,15 @@ export default defineHandler(async (event) => {
     });
 
     // Non-blocking cache write (24 hours TTL)
-    event.waitUntil(storage.setItemRaw(cacheKey, new Uint8Array(screenshot), { ttl: IMAGE_TTL }));
+    event.waitUntil(
+      storage.setItemRaw(cacheKey, new Uint8Array(screenshot), { ttl: SCREENSHOT_TTL }),
+    );
 
     // CORS is handled by global routeRules
     const contentType = format === "jpeg" ? "image/jpeg" : "image/png";
     event.res.headers.set("X-Cache", "MISS");
     event.res.headers.set("Content-Type", contentType);
-    event.res.headers.set("Cache-Control", `public, max-age=${IMAGE_TTL}`);
+    event.res.headers.set("Cache-Control", CACHE_MEDIUM);
 
     return screenshot;
   } finally {

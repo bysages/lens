@@ -3,7 +3,7 @@ import { defineHandler, getQuery } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 
-import { OG_IMAGE_TTL } from "../utils/constants";
+import { CACHE_IMMUTABLE, OG_IMAGE_TTL } from "../utils/constants";
 
 export interface OGQuery {
   title?: string;
@@ -37,7 +37,7 @@ export default defineHandler(async (event) => {
   if (cached) {
     event.res.headers.set("X-Cache", "HIT");
     event.res.headers.set("Content-Type", "image/png");
-    event.res.headers.set("Cache-Control", `public, max-age=${OG_IMAGE_TTL}`);
+    event.res.headers.set("Cache-Control", CACHE_IMMUTABLE);
     return Buffer.from(cached);
   }
 
@@ -115,7 +115,7 @@ export default defineHandler(async (event) => {
 
   event.res.headers.set("X-Cache", "MISS");
   event.res.headers.set("Content-Type", "image/png");
-  event.res.headers.set("Cache-Control", `public, max-age=${OG_IMAGE_TTL}`);
+  event.res.headers.set("Cache-Control", CACHE_IMMUTABLE);
 
   return buffer;
 });

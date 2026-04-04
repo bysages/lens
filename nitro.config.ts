@@ -36,6 +36,7 @@ export default defineNitroConfig({
       driver: env.REDIS_URL ? "redis" : "memory",
       ...(env.REDIS_URL && {
         url: env.REDIS_URL,
+        base: "lens",
       }),
     },
   },

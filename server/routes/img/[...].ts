@@ -4,7 +4,7 @@ import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 import { env } from "std-env";
 
-import { IMAGE_TTL, OG_IMAGE_TTL } from "../../utils/constants";
+import { CACHE_MEDIUM, IMAGE_PROXY_TTL, OG_IMAGE_TTL } from "../../utils/constants";
 
 // Parse allowed domains from environment
 export const allowedDomains = env.ALLOWED_DOMAINS
@@ -19,9 +19,9 @@ export const ipx = createIPX({
   httpStorage: ipxHttpStorage({
     domains: allowedDomains,
     allowAllDomains: allowedDomains.length === 0,
-    maxAge: IMAGE_TTL,
+    maxAge: IMAGE_PROXY_TTL,
   }),
-  maxAge: IMAGE_TTL,
+  maxAge: IMAGE_PROXY_TTL,
 });
 
 const fetchHandler = createIPXFetchHandler(ipx);
@@ -43,7 +43,7 @@ export default defineHandler(async (event) => {
       typeof cachedMeta?.contentType === "string" ? cachedMeta.contentType : "image/png";
     event.res.headers.set("Content-Type", contentType);
     event.res.headers.set("X-Cache", "HIT");
-    event.res.headers.set("Cache-Control", `public, max-age=${IMAGE_TTL}`);
+    event.res.headers.set("Cache-Control", CACHE_MEDIUM);
     return cached;
   }
 
@@ -57,7 +57,7 @@ export default defineHandler(async (event) => {
   });
 
   event.res.headers.set("X-Cache", "MISS");
-  event.res.headers.set("Cache-Control", `public, max-age=${IMAGE_TTL}`);
+  event.res.headers.set("Cache-Control", CACHE_MEDIUM);
 
   // Non-blocking cache write: data with TTL, Content-Type in metadata
   const contentType = response.headers.get("content-type") || "image/png";

@@ -2,7 +2,7 @@ import { defineHandler, HTTPError, getRouterParam } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 
-import { FONT_FILE_TTL } from "../../utils/constants";
+import { CACHE_IMMUTABLE, FONT_FILE_TTL } from "../../utils/constants";
 
 export const allowedProviders = ["google", "bunny", "fontshare", "fontsource"];
 
@@ -96,7 +96,7 @@ export default defineHandler(async (event) => {
     event.res.headers.set("X-Cache", "HIT");
     const contentType = getFontContentType(fontpath);
     event.res.headers.set("Content-Type", contentType);
-    event.res.headers.set("Cache-Control", `public, max-age=${FONT_FILE_TTL}`);
+    event.res.headers.set("Cache-Control", CACHE_IMMUTABLE);
     return Buffer.from(cached);
   }
 

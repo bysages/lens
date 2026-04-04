@@ -4,7 +4,7 @@ import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 import sharp from "sharp";
 
-import { FONT_FILE_TTL } from "../utils/constants";
+import { CACHE_LONG, FAVICON_TTL } from "../utils/constants";
 
 export interface FaviconQuery {
   url: string;
@@ -329,7 +329,7 @@ export default defineHandler(async (event) => {
   if (cached) {
     event.res.headers.set("X-Cache", "HIT");
     event.res.headers.set("Content-Type", "image/png");
-    event.res.headers.set("Cache-Control", `public, max-age=${FONT_FILE_TTL}`);
+    event.res.headers.set("Cache-Control", CACHE_LONG);
     return Buffer.from(cached);
   }
 
@@ -337,11 +337,11 @@ export default defineHandler(async (event) => {
   const favicon = await getFavicon(url, size);
 
   // Non-blocking cache write (30 days TTL)
-  event.waitUntil(storage.setItemRaw(cacheKey, new Uint8Array(favicon), { ttl: FONT_FILE_TTL }));
+  event.waitUntil(storage.setItemRaw(cacheKey, new Uint8Array(favicon), { ttl: FAVICON_TTL }));
 
   event.res.headers.set("X-Cache", "MISS");
   event.res.headers.set("Content-Type", "image/png");
-  event.res.headers.set("Cache-Control", `public, max-age=${FONT_FILE_TTL}`);
+  event.res.headers.set("Cache-Control", CACHE_LONG);
 
   return favicon;
 });

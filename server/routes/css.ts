@@ -1,5 +1,6 @@
 import { defineHandler, HTTPError, getQuery, getRequestURL } from "nitro/h3";
 
+import { CACHE_FONT_CSS } from "../utils/constants";
 import { generateFontCSS } from "../utils/fonts/css";
 
 export interface FontQuery {
@@ -41,6 +42,8 @@ export default defineHandler(async (event) => {
 
   event.res.headers.set("Content-Type", "text/css; charset=utf-8");
   event.res.headers.set("X-Content-Type-Options", "nosniff");
+  event.res.headers.set("Cache-Control", CACHE_FONT_CSS);
+  event.res.headers.set("Vary", "User-Agent");
 
   return css;
 });

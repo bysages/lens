@@ -2,7 +2,7 @@ import { defineHandler, getQuery } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 
-import { FONT_META_TTL } from "../utils/constants";
+import { CACHE_SHORT, FONT_META_TTL } from "../utils/constants";
 import { getWebfontsList } from "../utils/fonts/webfonts";
 
 export interface WebfontsQuery {
@@ -28,6 +28,7 @@ export default defineHandler(async (event) => {
 
   if (cached) {
     event.res.headers.set("X-Cache", "HIT");
+    event.res.headers.set("Cache-Control", CACHE_SHORT);
     return cached;
   }
 
@@ -36,6 +37,7 @@ export default defineHandler(async (event) => {
   await storage.setItem(cacheKey, response, { ttl: FONT_META_TTL }); // 1 hour
 
   event.res.headers.set("X-Cache", "MISS");
+  event.res.headers.set("Cache-Control", CACHE_SHORT);
 
   return response;
 });

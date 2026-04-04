@@ -15,6 +15,7 @@
 - **🅰️ Font Service**: Google Fonts compatible API with multiple providers
 - **🎨 Open Graph Images**: Dynamic OG image generation
 - **🎯 Favicon Extraction**: Smart favicon extraction from websites
+- **👤 Gravatar Proxy**: Cached Gravatar avatar proxy with email or hash input
 
 ### Performance & Scalability
 
@@ -80,7 +81,7 @@ See `.env.example` for all available options.
 
 All API responses include intelligent caching headers with 24-hour cache duration for optimal performance. Responses include `X-Cache` headers indicating cache status (HIT/MISS).
 
-### Image Processing
+### Image Proxy
 
 Transform and optimize images on-the-fly:
 
@@ -252,6 +253,34 @@ GET /favicon?url={website_url}&size={size}
 - 24-hour caching with 7-day storage retention
 - Automatic fallback to generated favicon if none found
 
+### Gravatar Proxy
+
+Get Gravatar avatars by email or MD5 hash. All query parameters (except `email`/`hash`) are forwarded directly to Gravatar.
+
+```
+GET /gravatar?email={email}
+GET /gravatar?hash={md5}&{gravatar_params}
+```
+
+**Examples:**
+
+```bash
+# By email
+/gravatar?email=user@example.com
+
+# By MD5 hash
+/gravatar?hash=9b828a5c6a0a8b9c0d1e2f3a4b5c6d7e
+
+# With Gravatar parameters
+/gravatar?email=user@example.com&size=200&default=identicon&rating=pg
+```
+
+**Parameters:**
+
+- `email` - Email address (will be MD5 hashed automatically)
+- `hash` - Pre-computed MD5 hash (alternative to email)
+- All other parameters are forwarded to [Gravatar API](https://docs.gravatar.com/api/images/)
+
 ## 🏗️ Architecture
 
 Lens is built with modern web standards and follows clean architecture principles:
@@ -260,7 +289,7 @@ Lens is built with modern web standards and follows clean architecture principle
 
 - **Runtime**: Node.js 22+ with Nitro
 - **Language**: TypeScript with strict type safety
-- **Image Processing**: IPX with Sharp
+- **Image Proxy**: IPX with Sharp
 - **Browser Automation**: Playwright with singleton browser and isolated contexts
 - **Caching**: Redis with unstorage
 
