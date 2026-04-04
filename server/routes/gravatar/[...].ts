@@ -1,28 +1,32 @@
 import { createHash } from "node:crypto";
 
-import { defineHandler, HTTPError, getRequestURL, getQuery } from "nitro/h3";
+import { defineHandler, HTTPError, getRequestURL, getQuery, getRouterParam } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 
-import { CACHE_LONG, GRAVATAR_TTL } from "../utils/constants";
+import { CACHE_LONG, GRAVATAR_TTL } from "../../utils/constants";
 
 const GRAVATAR_BASE = "https://www.gravatar.com/avatar";
 
 export default defineHandler(async (event) => {
   const query = getQuery(event);
+  const pathHash = getRouterParam(event, "_");
 
-  if (!query.email && !query.hash) {
+  // Path format: /gravatar/{md5}?size=200 — use path directly, ignore email/hash
+  // Query format: /gravatar?email=xxx or /gravatar?hash=xxx
+  const md5 = pathHash
+    ? pathHash
+    : query.hash ||
+      createHash("md5")
+        .update((query.email as string).trim().toLowerCase())
+        .digest("hex");
+
+  if (!md5) {
     throw new HTTPError({
       status: 400,
-      message: "Missing email or hash parameter",
+      message: "Missing email, hash parameter, or path hash",
     });
   }
-
-  const md5 =
-    query.hash ||
-    createHash("md5")
-      .update((query.email as string).trim().toLowerCase())
-      .digest("hex");
 
   // Forward all query params except email/hash
   const params = new URLSearchParams(getRequestURL(event).search);
@@ -55,7 +59,6 @@ export default defineHandler(async (event) => {
   }
 
   const data = await response.bytes();
-
   const contentType = response.headers.get("content-type") || "image/png";
   event.res.headers.set("Content-Type", contentType);
   event.res.headers.set("X-Cache", "MISS");

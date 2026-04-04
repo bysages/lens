@@ -255,9 +255,10 @@ GET /favicon?url={website_url}&size={size}
 
 ### Gravatar Proxy
 
-Get Gravatar avatars by email or MD5 hash. All query parameters (except `email`/`hash`) are forwarded directly to Gravatar.
+Get Gravatar avatars by email, MD5 hash, or path. All query parameters (except `email`/`hash`) are forwarded directly to Gravatar. You can switch from Gravatar by simply replacing the URL prefix.
 
 ```
+GET /gravatar/{md5}?{gravatar_params}
 GET /gravatar?email={email}
 GET /gravatar?hash={md5}&{gravatar_params}
 ```
@@ -265,11 +266,14 @@ GET /gravatar?hash={md5}&{gravatar_params}
 **Examples:**
 
 ```bash
+# By path (drop-in replacement for Gravatar URLs)
+/gravatar/{md5}?size=200
+
 # By email
 /gravatar?email=user@example.com
 
 # By MD5 hash
-/gravatar?hash=9b828a5c6a0a8b9c0d1e2f3a4b5c6d7e
+/gravatar?hash={md5}
 
 # With Gravatar parameters
 /gravatar?email=user@example.com&size=200&default=identicon&rating=pg
@@ -277,6 +281,7 @@ GET /gravatar?hash={md5}&{gravatar_params}
 
 **Parameters:**
 
+- `{md5}` - MD5 hash in URL path (drop-in replacement mode)
 - `email` - Email address (will be MD5 hashed automatically)
 - `hash` - Pre-computed MD5 hash (alternative to email)
 - All other parameters are forwarded to [Gravatar API](https://docs.gravatar.com/api/images/)
