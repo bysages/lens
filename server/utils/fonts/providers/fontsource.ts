@@ -1,5 +1,6 @@
 import { useStorage } from "nitro/storage";
 
+import { FONT_META_TTL } from "../../constants";
 // Fontsource provider for WebFonts API
 import { sortVariants } from "../helpers";
 import type { WebFontItem } from "../types";
@@ -35,8 +36,7 @@ export async function getFontsourceMeta(): Promise<FontsourceFontMeta[]> {
   const data = (await response.json()) as FontsourceFontMeta[];
 
   // Cache for 1 hour
-  await storage.setItem(cacheKey, data);
-  await storage.setMeta(cacheKey, { ttl: 3600 });
+  await storage.setItem(cacheKey, data, { ttl: FONT_META_TTL });
 
   return data;
 }

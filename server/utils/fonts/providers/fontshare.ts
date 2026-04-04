@@ -1,5 +1,6 @@
 import { useStorage } from "nitro/storage";
 
+import { FONT_META_TTL } from "../../constants";
 // Fontshare provider for WebFonts API
 import { sortVariants, categorizeFontFamily } from "../helpers";
 import type { WebFontItem } from "../types";
@@ -53,8 +54,7 @@ export async function getFontshareMeta(): Promise<FontshareFontMeta[]> {
   console.log(`[Fontshare] Fetched ${fonts.length} fonts`);
 
   // Cache for 1 hour
-  await storage.setItem(cacheKey, fonts);
-  await storage.setMeta(cacheKey, { ttl: 3600 });
+  await storage.setItem(cacheKey, fonts, { ttl: FONT_META_TTL });
 
   return fonts;
 }

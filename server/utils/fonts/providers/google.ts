@@ -1,5 +1,6 @@
 import { useStorage } from "nitro/storage";
 
+import { FONT_META_TTL } from "../../constants";
 // Google Fonts provider for WebFonts API
 import { sortVariants } from "../helpers";
 import { categorizeFontFamily } from "../helpers";
@@ -93,8 +94,7 @@ export async function getGoogleFontsMeta(): Promise<GoogleFontMeta[]> {
   const data = JSON.parse(jsonMatch[0]) as { familyMetadataList: GoogleFontMeta[] };
 
   // Cache for 1 hour
-  await storage.setItem(cacheKey, data.familyMetadataList);
-  await storage.setMeta(cacheKey, { ttl: 3600 });
+  await storage.setItem(cacheKey, data.familyMetadataList, { ttl: FONT_META_TTL });
 
   return data.familyMetadataList;
 }

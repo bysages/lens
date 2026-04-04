@@ -1,10 +1,7 @@
 import { defineNitroConfig } from "nitro/config";
-import { env, isBun, isDeno, isNode } from "std-env";
+import { env } from "std-env";
 
 import pkg from "./package.json";
-
-// Detect if filesystem is available (Node.js, Bun, or Deno runtime)
-const hasFilesystem = isNode || isBun || isDeno;
 
 export default defineNitroConfig({
   serverDir: "./server/",
@@ -35,14 +32,11 @@ export default defineNitroConfig({
   },
   storage: {
     cache: {
-      driver: env.REDIS_URL ? "redis" : hasFilesystem ? "fs" : "memory",
+      // FS driver does not support TTL, only use redis or memory
+      driver: env.REDIS_URL ? "redis" : "memory",
       ...(env.REDIS_URL && {
         url: env.REDIS_URL,
       }),
-      ...(hasFilesystem &&
-        !env.REDIS_URL && {
-          base: "./.cache",
-        }),
     },
   },
   devStorage: {

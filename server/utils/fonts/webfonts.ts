@@ -1,5 +1,6 @@
 import { useStorage } from "nitro/storage";
 
+import { FONT_META_TTL } from "../constants";
 import { getBunnyWebFonts } from "./providers/bunny";
 import { getFontshareWebFonts } from "./providers/fontshare";
 import { getFontsourceWebFonts } from "./providers/fontsource";
@@ -88,8 +89,7 @@ export async function getWebfontsList(
   };
 
   // Cache for 1 hour
-  await storage.setItem(cacheKey, result);
-  await storage.setMeta(cacheKey, { ttl: 3600 });
+  await storage.setItem(cacheKey, result, { ttl: FONT_META_TTL });
 
   return result;
 }

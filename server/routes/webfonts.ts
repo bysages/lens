@@ -2,6 +2,7 @@ import { defineHandler, getQuery } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 
+import { FONT_META_TTL } from "../utils/constants";
 import { getWebfontsList } from "../utils/fonts/webfonts";
 
 export interface WebfontsQuery {
@@ -32,8 +33,7 @@ export default defineHandler(async (event) => {
 
   const response = await getWebfontsList(provider, { family, subset, category }, sort);
 
-  await storage.setItem(cacheKey, response);
-  await storage.setMeta(cacheKey, { ttl: 3600 }); // 1 hour
+  await storage.setItem(cacheKey, response, { ttl: FONT_META_TTL }); // 1 hour
 
   event.res.headers.set("X-Cache", "MISS");
 

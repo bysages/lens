@@ -2,6 +2,8 @@ import { defineHandler, HTTPError, getRouterParam } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 
+import { FONT_FILE_TTL } from "../../utils/constants";
+
 export const allowedProviders = ["google", "bunny", "fontshare", "fontsource"];
 
 export const providerDomains: Record<string, string[]> = {
@@ -94,6 +96,7 @@ export default defineHandler(async (event) => {
     event.res.headers.set("X-Cache", "HIT");
     const contentType = getFontContentType(fontpath);
     event.res.headers.set("Content-Type", contentType);
+    event.res.headers.set("Cache-Control", `public, max-age=${FONT_FILE_TTL}`);
     return Buffer.from(cached);
   }
 
@@ -112,14 +115,14 @@ export default defineHandler(async (event) => {
 
   const data = Buffer.from(await response.arrayBuffer());
 
-  // Store raw binary data (30 days)
-  await storage.setItemRaw(cacheKey, new Uint8Array(data));
-  await storage.setMeta(cacheKey, { ttl: 2592000 }); // 30 days
+  // Non-blocking cache write (30 days TTL)
+  event.waitUntil(storage.setItemRaw(cacheKey, new Uint8Array(data), { ttl: FONT_FILE_TTL }));
 
   // CORS is handled by global routeRules
   const contentType = response.headers.get("content-type") || getFontContentType(fontpath);
   event.res.headers.set("X-Cache", "MISS");
   event.res.headers.set("Content-Type", contentType);
+  event.res.headers.set("Cache-Control", `public, max-age=${FONT_FILE_TTL}`);
 
   return data;
 });

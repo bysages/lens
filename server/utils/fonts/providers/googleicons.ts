@@ -1,6 +1,7 @@
 // Google Icons provider for WebFonts API
 import { useStorage } from "nitro/storage";
 
+import { FONT_META_TTL } from "../../constants";
 import type { WebFontItem } from "../types";
 
 // Google Icons meta is just an array of family names
@@ -27,8 +28,7 @@ export async function getGoogleIconsMeta(): Promise<GoogleiconsFontMeta> {
   const data = JSON.parse(text.slice(jsonStart)) as { families: string[] };
 
   // Cache for 1 hour
-  await storage.setItem(cacheKey, data.families);
-  await storage.setMeta(cacheKey, { ttl: 3600 });
+  await storage.setItem(cacheKey, data.families, { ttl: FONT_META_TTL });
 
   return data.families;
 }
