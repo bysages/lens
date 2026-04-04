@@ -90,9 +90,15 @@ export default defineHandler(async (event) => {
   const extension = getFontExtension(fontpath);
   const cacheKey = `fonts:${hash({ provider, path: fontpath })}.${extension}`;
   const storage = useStorage("cache");
+  const etag = `"${cacheKey}"`;
   const cached = await storage.getItemRaw<Uint8Array>(cacheKey);
 
   if (cached) {
+    if (event.req.headers.get("if-none-match") === etag) {
+      event.res.status = 304;
+      return null;
+    }
+    event.res.headers.set("ETag", etag);
     event.res.headers.set("X-Cache", "HIT");
     const contentType = getFontContentType(fontpath);
     event.res.headers.set("Content-Type", contentType);
@@ -120,9 +126,10 @@ export default defineHandler(async (event) => {
 
   // CORS is handled by global routeRules
   const contentType = response.headers.get("content-type") || getFontContentType(fontpath);
+  event.res.headers.set("ETag", etag);
   event.res.headers.set("X-Cache", "MISS");
   event.res.headers.set("Content-Type", contentType);
-  event.res.headers.set("Cache-Control", `public, max-age=${FONT_FILE_TTL}`);
+  event.res.headers.set("Cache-Control", CACHE_IMMUTABLE);
 
   return data;
 });

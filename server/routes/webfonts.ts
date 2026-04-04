@@ -24,9 +24,15 @@ export default defineHandler(async (event) => {
 
   const cacheKey = `webfonts:${hash({ provider, sort, family, subset, category })}.json`;
   const storage = useStorage("cache");
+  const etag = `"${cacheKey}"`;
   const cached = await storage.getItem(cacheKey);
 
   if (cached) {
+    if (event.req.headers.get("if-none-match") === etag) {
+      event.res.status = 304;
+      return null;
+    }
+    event.res.headers.set("ETag", etag);
     event.res.headers.set("X-Cache", "HIT");
     event.res.headers.set("Cache-Control", CACHE_SHORT);
     return cached;
@@ -36,6 +42,7 @@ export default defineHandler(async (event) => {
 
   await storage.setItem(cacheKey, response, { ttl: FONT_META_TTL }); // 1 hour
 
+  event.res.headers.set("ETag", etag);
   event.res.headers.set("X-Cache", "MISS");
   event.res.headers.set("Cache-Control", CACHE_SHORT);
 

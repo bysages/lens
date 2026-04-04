@@ -37,13 +37,19 @@ export default defineHandler(async (event) => {
   const cacheKey = `gravatar:${md5}${search ? `:${hash(search)}` : ""}`;
 
   const storage = useStorage("cache");
+  const etag = `"${cacheKey}"`;
   const cached = await storage.getItemRaw<Uint8Array>(cacheKey);
 
   if (cached) {
+    if (event.req.headers.get("if-none-match") === etag) {
+      event.res.status = 304;
+      return null;
+    }
     const cachedMeta = await storage.getMeta(cacheKey);
     const contentType =
       typeof cachedMeta?.contentType === "string" ? cachedMeta.contentType : "image/png";
     event.res.headers.set("Content-Type", contentType);
+    event.res.headers.set("ETag", etag);
     event.res.headers.set("X-Cache", "HIT");
     event.res.headers.set("Cache-Control", CACHE_LONG);
     return cached;
@@ -61,6 +67,7 @@ export default defineHandler(async (event) => {
   const data = await response.bytes();
   const contentType = response.headers.get("content-type") || "image/png";
   event.res.headers.set("Content-Type", contentType);
+  event.res.headers.set("ETag", etag);
   event.res.headers.set("X-Cache", "MISS");
   event.res.headers.set("Cache-Control", CACHE_LONG);
 
