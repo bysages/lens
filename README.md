@@ -21,7 +21,7 @@
 
 - **⚡ Redis Caching**: Redis-powered caching with 24-hour intelligent caching
 - **🚀 Resource Optimization**: Optimized page loading with blocked unnecessary resources
-- **🛡️ Rate Limiting**: Unified rate limiting with plugin-level management
+- **🛡️ Rate Limiting**: Rate limiting for expensive operations
 - **☁️ Cloud Native**: Support for Railway, Zeabur, and other persistent runtime platforms
 - **🔄 Graceful Degradation**: Automatic fallbacks for missing services
 
@@ -71,7 +71,7 @@ All configurations are optional and will gracefully degrade:
 # Image proxy security
 ALLOWED_DOMAINS=example.com,cdn.example.com
 
-# Caching (significantly improves performance - 24-hour default cache)
+# Caching (significantly improves performance)
 REDIS_URL=redis://localhost:6379
 ```
 
@@ -79,7 +79,7 @@ See `.env.example` for all available options.
 
 ## 📡 API Reference
 
-All API responses include intelligent caching headers with 24-hour cache duration for optimal performance. Responses include `X-Cache` headers indicating cache status (HIT/MISS).
+All cached responses include `X-Cache` headers (HIT/MISS) and `ETag` headers for conditional 304 responses.
 
 ### Image Proxy
 
@@ -113,7 +113,6 @@ GET /img/{modifiers}/{image_url}
 
 **Performance Features:**
 
-- 24-hour intelligent caching for all processed images
 - Redis caching for optimal performance
 - Automatic format optimization and compression
 
@@ -154,7 +153,7 @@ GET /screenshot?url={website_url}&options
 
 **Performance Notes:**
 
-- Screenshots are cached for 24 hours for optimal performance
+- Screenshots are cached for 1 day with rate limiting
 - Identical requests return cached results with sub-second response times
 - Resource optimization (blocking fonts, media, websockets) speeds up screenshot generation by 60-80%
 
@@ -250,7 +249,7 @@ GET /favicon?url={website_url}&size={size}
 **Features:**
 
 - Smart favicon extraction from multiple sources (PWA manifests, Apple touch icons, HTML tags)
-- 24-hour caching with 7-day storage retention
+- 30-day server-side caching with ETag/304 support
 - Automatic fallback to generated favicon if none found
 
 ### Gravatar Proxy

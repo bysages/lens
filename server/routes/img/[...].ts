@@ -32,7 +32,7 @@ export default defineHandler(async (event) => {
   const url = new URL(event.req.url);
   url.pathname = ipxPath;
 
-  const cacheKey = `img:${hash({ path: ipxPath, search: url.search })}`;
+  const cacheKey = `img:${hash(ipxPath)}`;
   const storage = useStorage("cache");
 
   // Cache lookup

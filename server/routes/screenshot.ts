@@ -4,7 +4,13 @@ import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 import { chromium as playwright, type Browser, type Page, type BrowserContext } from "playwright";
 
-import { CACHE_MEDIUM, SCREENSHOT_TTL } from "../utils/constants";
+import {
+  CACHE_MEDIUM,
+  SCREENSHOT_RATE_LIMIT,
+  SCREENSHOT_RATE_WINDOW,
+  SCREENSHOT_TTL,
+} from "../utils/constants";
+import { rateLimit } from "../utils/rate-limit";
 
 export interface ScreenshotQuery {
   url: string;
@@ -154,6 +160,8 @@ export default defineHandler(async (event) => {
     event.res.headers.set("Cache-Control", CACHE_MEDIUM);
     return Buffer.from(cached);
   }
+
+  await rateLimit(event, { limit: SCREENSHOT_RATE_LIMIT, window: SCREENSHOT_RATE_WINDOW });
 
   // Get singleton browser instance
   const browser = await getBrowser();

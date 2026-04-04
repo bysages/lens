@@ -21,6 +21,14 @@ export const FAVICON_TTL = 2592000;
 /** Font files (static versioned assets): 30 days */
 export const FONT_FILE_TTL = 2592000;
 
+// ── Rate Limit ──────────────────────────────────────
+
+/** Screenshot rate limit: 10 requests per minute per IP */
+export const SCREENSHOT_RATE_LIMIT = 10;
+
+/** Screenshot rate limit window: 60 seconds */
+export const SCREENSHOT_RATE_WINDOW = 60;
+
 // ── Cache-Control ──────────────────────────────────────
 
 /** Short cache for mutable data (font metadata): 1 hour */
