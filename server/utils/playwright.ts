@@ -1,7 +1,6 @@
-import { BrowserPool, PlaywrightPlugin } from "@crawlee/browser-pool";
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
-import { type Page } from "playwright";
+import { type Browser, type BrowserContext, type Page } from "playwright";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -38,43 +37,55 @@ export interface ScreenshotResult {
   type: "png" | "jpeg";
 }
 
-// ── BrowserPool Singleton ──────────────────────────────
+// ── Browser Lifecycle ──────────────────────────────────
 
-type PoolInstance = Awaited<ReturnType<typeof createPool>>;
+const MAX_PAGES_PER_BROWSER = 50;
+const IDLE_CLOSE_TIMEOUT_MS = 60_000;
 
-let poolInstance: PoolInstance | null = null;
-let poolInitializing: Promise<PoolInstance> | null = null;
+let browser: Browser | null = null;
+let browserInitializing: Promise<Browser> | null = null;
+let pageCount = 0;
+let idleTimer: ReturnType<typeof setTimeout> | null = null;
 
-export async function createPool() {
-  const { chromium: chromiumType } = await import("playwright");
-
-  const plugin = new PlaywrightPlugin(chromiumType, {
-    launchOptions: {
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-    },
-  });
-
-  return new BrowserPool({
-    browserPlugins: [plugin],
-    maxOpenPagesPerBrowser: 10,
-    retireBrowserAfterPageCount: 50,
-    closeInactiveBrowserAfterSecs: 60,
-    useFingerprints: false,
-    postPageCreateHooks: [async (page: Page) => optimizePage(page)],
+async function launchBrowser(): Promise<Browser> {
+  const { chromium } = await import("playwright");
+  return chromium.launch({
+    headless: true,
+    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
   });
 }
 
-export async function getBrowserPool() {
-  if (poolInstance) return poolInstance;
-  if (poolInitializing) return poolInitializing;
+async function getBrowser(): Promise<Browser> {
+  if (browser) return browser;
+  if (browserInitializing) return browserInitializing;
 
-  poolInitializing = createPool().then((pool) => {
-    poolInstance = pool;
-    return pool;
+  browserInitializing = launchBrowser().then((b) => {
+    browser = b;
+    return b;
   });
 
-  return poolInitializing;
+  return browserInitializing;
+}
+
+async function retireBrowser(): Promise<void> {
+  if (!browser) return;
+  const b = browser;
+  browser = null;
+  await b.close().catch(() => {});
+}
+
+function resetIdleTimer(): void {
+  if (idleTimer) clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    void retireBrowser();
+  }, IDLE_CLOSE_TIMEOUT_MS);
+}
+
+async function checkRetirement(): Promise<void> {
+  if (++pageCount >= MAX_PAGES_PER_BROWSER) {
+    pageCount = 0;
+    await retireBrowser();
+  }
 }
 
 // ── Page Helpers ───────────────────────────────────────
@@ -82,7 +93,7 @@ export async function getBrowserPool() {
 /**
  * Strip animations/transitions and block unnecessary resource types.
  */
-export async function optimizePage(page: Page): Promise<void> {
+async function optimizePage(page: Page): Promise<void> {
   await page.route("**/*", (route) => {
     const resourceType = route.request().resourceType();
     if (["font", "media", "websocket", "other", "manifest", "texttrack"].includes(resourceType)) {
@@ -103,22 +114,26 @@ export async function optimizePage(page: Page): Promise<void> {
 }
 
 /**
- * Execute a function with a page from the pool.
+ * Execute a function with a page from the default browser context.
  * Page is automatically closed after the callback completes.
  */
 export async function withPage<T>(fn: (page: Page) => Promise<T>): Promise<T> {
-  const pool = await getBrowserPool();
-  const page: Page = await pool.newPage();
+  const b = await getBrowser();
+  resetIdleTimer();
+
+  const page = await b.newPage();
+  await optimizePage(page);
 
   try {
     return await fn(page);
   } finally {
     await page.close().catch(() => {});
+    await checkRetirement();
   }
 }
 
 /**
- * Execute a function with a context-configured page from the pool.
+ * Execute a function with a context-configured page.
  */
 export async function withContext<T>(
   viewport: { width: number; height: number },
@@ -126,31 +141,35 @@ export async function withContext<T>(
   mobile: boolean,
   fn: (page: Page) => Promise<T>,
 ): Promise<T> {
-  const pool = await getBrowserPool();
-  const page: Page = await pool.newPage({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    pageOptions: {
-      viewport,
-      colorScheme: darkMode ? "dark" : "light",
-      userAgent: mobile
-        ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-        : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      isMobile: mobile,
-      hasTouch: mobile,
-    } as any,
+  const b = await getBrowser();
+  resetIdleTimer();
+
+  const context: BrowserContext = await b.newContext({
+    viewport,
+    colorScheme: darkMode ? "dark" : "light",
+    userAgent: mobile
+      ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+      : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    isMobile: mobile,
+    hasTouch: mobile,
   });
+
+  const page = await context.newPage();
+  await optimizePage(page);
 
   try {
     return await fn(page);
   } finally {
     await page.close().catch(() => {});
+    await context.close().catch(() => {});
+    await checkRetirement();
   }
 }
 
 // ── Screenshot Task ────────────────────────────────────
 
 /**
- * Capture a screenshot of the given URL using Crawlee's BrowserPool.
+ * Capture a screenshot of the given URL.
  */
 export async function captureScreenshot(params: ScreenshotParams): Promise<ScreenshotResult> {
   const {

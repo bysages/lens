@@ -8,8 +8,7 @@ import {
   BROWSER_TTL,
   CACHE_MEDIUM,
 } from "../utils/constants";
-import { captureScreenshot } from "../utils/crawlee/crawler";
-import { createDataset, type DatasetRecord } from "../utils/crawlee/dataset";
+import { captureScreenshot } from "../utils/playwright";
 import { rateLimit } from "../utils/rate-limit";
 
 export interface ScreenshotQuery {
@@ -31,13 +30,6 @@ export interface ScreenshotQuery {
   waitUntil?: string;
   delay?: string;
 }
-
-const screenshotDataset = createDataset<
-  DatasetRecord & { type: string; width: number; height: number }
->({
-  name: "screenshot",
-  ttl: BROWSER_TTL,
-});
 
 function parseClip(
   value: string | undefined,
@@ -121,7 +113,7 @@ export default defineHandler(async (event) => {
 
   await rateLimit(event, { limit: BROWSER_RATE_LIMIT, window: BROWSER_RATE_WINDOW });
 
-  // Capture via Crawlee BrowserPool
+  // Capture screenshot
   const result = await captureScreenshot({
     url,
     width,
@@ -142,18 +134,8 @@ export default defineHandler(async (event) => {
     delay,
   });
 
-  // Non-blocking cache write + dataset record
   event.waitUntil(
-    Promise.all([
-      storage.setItemRaw(cacheKey, new Uint8Array(result.buffer), { ttl: BROWSER_TTL }),
-      screenshotDataset.pushData({
-        url,
-        type,
-        width,
-        height,
-        timestamp: Date.now(),
-      }),
-    ]),
+    storage.setItemRaw(cacheKey, new Uint8Array(result.buffer), { ttl: BROWSER_TTL }),
   );
 
   // CORS is handled by global routeRules

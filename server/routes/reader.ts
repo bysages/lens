@@ -9,8 +9,7 @@ import {
   BROWSER_TTL,
   CACHE_MEDIUM,
 } from "../utils/constants";
-import { extractContent } from "../utils/crawlee/crawler";
-import { createDataset, type DatasetRecord } from "../utils/crawlee/dataset";
+import { extractContent } from "../utils/playwright";
 import { rateLimit } from "../utils/rate-limit";
 
 export interface ReaderQuery {
@@ -20,13 +19,6 @@ export interface ReaderQuery {
   delay?: string;
   timeout?: string;
 }
-
-const readerDataset = createDataset<
-  DatasetRecord & { format: string; title: string; siteName: string }
->({
-  name: "reader",
-  ttl: BROWSER_TTL,
-});
 
 export default defineHandler(async (event) => {
   const query = getQuery<ReaderQuery>(event);
@@ -77,7 +69,7 @@ export default defineHandler(async (event) => {
 
   await rateLimit(event, { limit: BROWSER_RATE_LIMIT, window: BROWSER_RATE_WINDOW });
 
-  // Extract article content via Crawlee BrowserPool + Readability
+  // Extract article content via Playwright + Readability
   const article = await extractContent({ url, waitUntil, delay, timeout });
 
   if (!article.content) {
@@ -96,19 +88,8 @@ export default defineHandler(async (event) => {
     content = article.content;
   }
 
-  // Non-blocking cache write + dataset record
-  event.waitUntil(
-    Promise.all([
-      storage.setItem(cacheKey, content, { ttl: BROWSER_TTL }),
-      readerDataset.pushData({
-        url,
-        format,
-        title: article.title,
-        siteName: article.siteName,
-        timestamp: Date.now(),
-      }),
-    ]),
-  );
+  // Non-blocking cache write
+  event.waitUntil(storage.setItem(cacheKey, content, { ttl: BROWSER_TTL }));
 
   event.res.headers.set("ETag", etag);
   event.res.headers.set("X-Cache", "MISS");
