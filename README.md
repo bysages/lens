@@ -12,6 +12,7 @@
 
 - **🖼️ Image Proxy**: IPX-powered image processing with resize, format conversion, optimization
 - **📸 Screenshot Capture**: Fast website screenshot service with resource optimization
+- **📄 Reader**: Article content extraction (HTML/Markdown) with Readability
 - **🅰️ Font Service**: Google Fonts compatible API with multiple providers
 - **🎨 Open Graph Images**: Dynamic OG image generation
 - **🎯 Favicon Extraction**: Smart favicon extraction from websites
@@ -22,7 +23,6 @@
 - **⚡ Redis Caching**: Redis-powered caching with 24-hour intelligent caching
 - **🚀 Resource Optimization**: Optimized page loading with blocked unnecessary resources
 - **🛡️ Rate Limiting**: Rate limiting for expensive operations
-- **☁️ Cloud Native**: Support for Railway, Zeabur, and other persistent runtime platforms
 - **🔄 Graceful Degradation**: Automatic fallbacks for missing services
 
 ## 📦 Quick Start
@@ -81,7 +81,9 @@ See `.env.example` for all available options.
 
 All cached responses include `X-Cache` headers (HIT/MISS) and `ETag` headers for conditional 304 responses.
 
-### Image Proxy
+### Images
+
+#### Image Proxy
 
 Transform and optimize images on-the-fly:
 
@@ -116,9 +118,9 @@ GET /img/{modifiers}/{image_url}
 - Redis caching for optimal performance
 - Automatic format optimization and compression
 
-### Screenshot Capture
+#### Screenshot Capture
 
-Capture website screenshots:
+Capture website screenshots with Playwright-aligned options:
 
 ```
 GET /screenshot?url={website_url}&options
@@ -130,26 +132,52 @@ GET /screenshot?url={website_url}&options
 # Basic screenshot
 /screenshot?url=https://example.com
 
-# Mobile screenshot with custom size
+# JPEG with custom quality
+/screenshot?url=https://example.com&type=jpeg&quality=80
+
+# Mobile screenshot with custom viewport
 /screenshot?url=https://example.com&width=375&height=667&mobile=true
 
-# Full page with WebP format
-/screenshot?url=https://example.com&fullPage=true&format=webp&quality=90
+# Full page capture
+/screenshot?url=https://example.com&fullPage=true
+
+# Clip region (x,y,width,height)
+/screenshot?url=https://example.com&clip=0,0,400,300
+
+# Transparent background
+/screenshot?url=https://example.com&omitBackground=true
+
+# Disable animations for clean capture
+/screenshot?url=https://example.com&animations=disabled
+
+# Custom CSS scale
+/screenshot?url=https://example.com&scale=css
+
+# Inject custom stylesheet
+/screenshot?url=https://example.com&style=body{background:red}
 ```
 
 **Parameters:**
 
-- `url` - Website URL (required)
-- `width` - Viewport width (default: 1280)
-- `height` - Viewport height (default: 720)
-- `format` - Output format (png, jpeg, webp)
-- `quality` - JPEG quality (1-100)
-- `fullPage` - Capture full page (true/false, default: false for viewport capture)
-- `mobile` - Mobile viewport (true/false)
-- `darkMode` - Dark mode (true/false)
-- `deviceScaleFactor` - Device scale factor (default: 1)
-- `waitUntil` - Navigation wait condition (load, domcontentloaded, networkidle, default: domcontentloaded)
-- `delay` - Additional delay in milliseconds after page load (0-1000)
+| Parameter        | Description                                                           | Default            |
+| ---------------- | --------------------------------------------------------------------- | ------------------ |
+| `url`            | Website URL (required)                                                | -                  |
+| `width`          | Viewport width (100-2560)                                             | 1280               |
+| `height`         | Viewport height (100-1440)                                            | 720                |
+| `type`           | Output format (`png`, `jpeg`)                                         | `png`              |
+| `quality`        | Image quality, 1-100 (jpeg only)                                      | -                  |
+| `fullPage`       | Capture full scrollable page (`true`/`false`)                         | `false`            |
+| `clip`           | Clip region as `x,y,width,height`                                     | -                  |
+| `omitBackground` | Hide default white background (`true`/`false`, png only)              | `false`            |
+| `scale`          | Screenshot scale (`css` for CSS pixels, `device` for device pixels)   | `device`           |
+| `animations`     | Animation handling (`disabled` or `allow`)                            | `allow`            |
+| `caret`          | Text caret (`hide` or `initial`)                                      | `hide`             |
+| `style`          | Custom CSS stylesheet to apply                                        | -                  |
+| `timeout`        | Navigation timeout in ms (1000-30000)                                 | 10000              |
+| `mobile`         | Mobile viewport (`true`/`false`)                                      | `false`            |
+| `darkMode`       | Dark mode (`true`/`false`)                                            | `false`            |
+| `waitUntil`      | Navigation wait condition (`load`, `domcontentloaded`, `networkidle`) | `domcontentloaded` |
+| `delay`          | Additional delay in ms after page load (0-10000)                      | -                  |
 
 **Performance Notes:**
 
@@ -157,7 +185,122 @@ GET /screenshot?url={website_url}&options
 - Identical requests return cached results with sub-second response times
 - Resource optimization (blocking fonts, media, websockets) speeds up screenshot generation by 60-80%
 
-### Font Service
+#### Open Graph Images
+
+Generate dynamic OG images:
+
+```
+GET /og?title={title}&description={description}
+```
+
+**Examples:**
+
+```bash
+# Basic OG image
+/og?title=Welcome&description=Get started with Lens
+
+# Custom styling
+/og?title=Hello World&theme=dark&fontSize=72&width=1200&height=630
+```
+
+**Caching:**
+
+- Generated OG images are cached for 24 hours
+- Identical requests with same parameters return cached results instantly
+
+### Web Services
+
+#### Reader (Content Extraction)
+
+Extract rendered HTML or Markdown content from any URL:
+
+```
+GET /reader?url={website_url}&options
+```
+
+**Examples:**
+
+```bash
+# Extract rendered HTML
+/reader?url=https://github.com/bysages/lens
+
+# Convert to Markdown
+/reader?url=https://github.com/bysages/lens&format=markdown
+
+# Wait for full page load
+/reader?url=https://github.com/bysages/lens&waitUntil=load
+```
+
+**Parameters:**
+
+| Parameter   | Description                                                           | Default            |
+| ----------- | --------------------------------------------------------------------- | ------------------ |
+| `url`       | Website URL (required)                                                | -                  |
+| `format`    | Output format (`html`, `markdown`)                                    | `html`             |
+| `waitUntil` | Navigation wait condition (`load`, `domcontentloaded`, `networkidle`) | `domcontentloaded` |
+| `delay`     | Additional delay in ms after page load (0-10000)                      | -                  |
+| `timeout`   | Navigation timeout in ms (1000-30000)                                 | 10000              |
+
+#### Favicon Extraction
+
+Extract high-quality favicons:
+
+```
+GET /favicon?url={website_url}&size={size}
+```
+
+**Examples:**
+
+```bash
+# Extract favicon
+/favicon?url=https://example.com
+
+# Custom size
+/favicon?url=https://example.com&size=64
+```
+
+**Features:**
+
+- Smart favicon extraction from multiple sources (PWA manifests, Apple touch icons, HTML tags)
+- 30-day server-side caching with ETag/304 support
+- Automatic fallback to generated favicon if none found
+
+#### Gravatar Proxy
+
+Get Gravatar avatars by email, MD5 hash, or path. All query parameters (except `email`/`hash`) are forwarded directly to Gravatar. You can switch from Gravatar by simply replacing the URL prefix.
+
+```
+GET /gravatar/{md5}?{gravatar_params}
+GET /gravatar?email={email}
+GET /gravatar?hash={md5}&{gravatar_params}
+```
+
+**Examples:**
+
+```bash
+# By path (drop-in replacement for Gravatar URLs)
+/gravatar/{md5}?size=200
+
+# By email
+/gravatar?email=user@example.com
+
+# By MD5 hash
+/gravatar?hash={md5}
+
+# With Gravatar parameters
+/gravatar?email=user@example.com&size=200&default=identicon&rating=pg
+```
+
+**Parameters:**
+
+- `{md5}` - MD5 hash in URL path (drop-in replacement mode)
+- `email` - Email address (will be MD5 hashed automatically)
+- `hash` - Pre-computed MD5 hash (alternative to email)
+- All other parameters are forwarded to [Gravatar API](https://docs.gravatar.com/api/images/)
+
+### Fonts
+
+#### Font Service
 
 Google Fonts compatible API with both v1 and v2 endpoints:
 
@@ -205,86 +348,6 @@ GET /css2?family={font_family}&display=swap
 - Use `/css2` for **modern applications** with variable fonts and better optimization
 - Both endpoints support all font providers (Google, Bunny, Fontshare, Fontsource)
 
-### Open Graph Images
-
-Generate dynamic OG images:
-
-```
-GET /og?title={title}&description={description}
-```
-
-**Examples:**
-
-```bash
-# Basic OG image
-/og?title=Welcome&description=Get started with Lens
-
-# Custom styling
-/og?title=Hello World&theme=dark&fontSize=72&width=1200&height=630
-```
-
-**Caching:**
-
-- Generated OG images are cached for 24 hours
-- Identical requests with same parameters return cached results instantly
-
-### Favicon Extraction
-
-Extract high-quality favicons:
-
-```
-GET /favicon?url={website_url}&size={size}
-```
-
-**Examples:**
-
-```bash
-# Extract favicon
-/favicon?url=https://example.com
-
-# Custom size
-/favicon?url=https://example.com&size=64
-```
-
-**Features:**
-
-- Smart favicon extraction from multiple sources (PWA manifests, Apple touch icons, HTML tags)
-- 30-day server-side caching with ETag/304 support
-- Automatic fallback to generated favicon if none found
-
-### Gravatar Proxy
-
-Get Gravatar avatars by email, MD5 hash, or path. All query parameters (except `email`/`hash`) are forwarded directly to Gravatar. You can switch from Gravatar by simply replacing the URL prefix.
-
-```
-GET /gravatar/{md5}?{gravatar_params}
-GET /gravatar?email={email}
-GET /gravatar?hash={md5}&{gravatar_params}
-```
-
-**Examples:**
-
-```bash
-# By path (drop-in replacement for Gravatar URLs)
-/gravatar/{md5}?size=200
-
-# By email
-/gravatar?email=user@example.com
-
-# By MD5 hash
-/gravatar?hash={md5}
-
-# With Gravatar parameters
-/gravatar?email=user@example.com&size=200&default=identicon&rating=pg
-```
-
-**Parameters:**
-
-- `{md5}` - MD5 hash in URL path (drop-in replacement mode)
-- `email` - Email address (will be MD5 hashed automatically)
-- `hash` - Pre-computed MD5 hash (alternative to email)
-- All other parameters are forwarded to [Gravatar API](https://docs.gravatar.com/api/images/)
-
 ## 🏗️ Architecture
 
 Lens is built with modern web standards and follows clean architecture principles:
@@ -294,7 +357,7 @@ Lens is built with modern web standards and follows clean architecture principle
 - **Runtime**: Node.js 22+ with Nitro
 - **Language**: TypeScript with strict type safety
 - **Image Proxy**: IPX with Sharp
-- **Browser Automation**: Playwright with singleton browser and isolated contexts
+- **Browser Automation**: Playwright with Crawlee BrowserPool
 - **Caching**: Redis with unstorage
 
 ### Design Principles
@@ -387,38 +450,6 @@ docker run -d \
   --restart unless-stopped \
   lens
 ```
-
-### Platform Compatibility
-
-**⚠️ Important**: This application requires a **persistent runtime environment** for optimal performance.
-
-**✅ Fully Supported:**
-
-- **Vercel** - Native support with automatic optimization
-- **Cloudflare Containers** - Docker container deployment with persistent runtime
-- Traditional VPS/Dedicated servers
-- Docker containers
-- Render.com
-- DigitalOcean App Platform
-- Heroku
-- Any platform with persistent Node.js 22+ runtime
-
-**❌ Not Supported:**
-
-- Cloudflare Workers/Pages
-- Netlify Functions
-- AWS Lambda
-- Azure Functions
-
-**Why not serverless?** This application needs:
-
-1. Persistent browser instance (Playwright)
-2. Native dependencies (Sharp, chromium)
-3. Long-running processes (screenshots, image processing)
-4. Persistent storage (caching)
-5. Connection reuse (performance)
-
-**Vercel Exception**: Vercel is fully supported through automatic environment detection and native platform integration.
 
 ### Environment Variables
 

@@ -1,105 +1,52 @@
-import chromium from "@sparticuz/chromium";
 import { defineHandler, HTTPError, getQuery } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
-import { chromium as playwright, type Browser, type Page, type BrowserContext } from "playwright";
 
 import {
+  BROWSER_RATE_LIMIT,
+  BROWSER_RATE_WINDOW,
+  BROWSER_TTL,
   CACHE_MEDIUM,
-  SCREENSHOT_RATE_LIMIT,
-  SCREENSHOT_RATE_WINDOW,
-  SCREENSHOT_TTL,
 } from "../utils/constants";
+import { captureScreenshot } from "../utils/crawlee/crawler";
+import { createDataset, type DatasetRecord } from "../utils/crawlee/dataset";
 import { rateLimit } from "../utils/rate-limit";
 
 export interface ScreenshotQuery {
   url: string;
   width?: string;
   height?: string;
+  type?: string;
   fullPage?: string;
-  format?: string;
   quality?: string;
-  deviceScaleFactor?: string;
+  clip?: string;
+  omitBackground?: string;
+  scale?: string;
+  animations?: string;
+  caret?: string;
+  style?: string;
+  timeout?: string;
   mobile?: string;
   darkMode?: string;
   waitUntil?: string;
   delay?: string;
 }
 
-// Singleton browser instance
-let browserInstance: Browser | null = null;
-let browserInitializing: Promise<Browser> | null = null;
+const screenshotDataset = createDataset<
+  DatasetRecord & { type: string; width: number; height: number }
+>({
+  name: "screenshot",
+  ttl: BROWSER_TTL,
+});
 
-export async function getBrowser(): Promise<Browser> {
-  if (browserInstance) {
-    return browserInstance;
-  }
-
-  if (browserInitializing) {
-    return browserInitializing;
-  }
-
-  browserInitializing = (async () => {
-    try {
-      browserInstance = await playwright.launch({
-        headless: true,
-        executablePath: await chromium.executablePath(),
-        args: chromium.args,
-      });
-      return browserInstance;
-    } catch {
-      // Fallback to standard playwright
-      browserInstance = await playwright.launch({
-        headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-      });
-      return browserInstance;
-    }
-  })();
-
-  return browserInitializing;
-}
-
-export async function optimizePage(page: Page): Promise<void> {
-  await page.route("**/*", (route) => {
-    const resourceType = route.request().resourceType();
-    if (["font", "media", "websocket", "other", "manifest", "texttrack"].includes(resourceType)) {
-      void route.abort();
-    } else {
-      void route.continue();
-    }
-  });
-
-  page.setDefaultTimeout(10000);
-  page.setDefaultNavigationTimeout(10000);
-
-  await page.evaluate(() => {
-    const style = document.createElement("style");
-    style.textContent = "*,::after,::before{transition:none!important;animation:none!important}";
-    document.head.appendChild(style);
-  });
-}
-
-export async function createScreenshotContext(
-  browser: Browser,
-  viewport: { width: number; height: number },
-  darkMode: boolean,
-  mobile: boolean,
-): Promise<BrowserContext> {
-  const contextOptions = {
-    ignoreHTTPSErrors: true,
-    bypassCSP: true,
-    viewport,
-    deviceScaleFactor: 1,
-    colorScheme: (darkMode ? "dark" : "light") as "dark" | "light",
-    userAgent: mobile
-      ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-      : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    isMobile: mobile,
-    hasTouch: mobile,
-  };
-
-  return await browser.newContext(contextOptions);
+function parseClip(
+  value: string | undefined,
+): { x: number; y: number; width: number; height: number } | undefined {
+  if (!value) return undefined;
+  // Expected format: "x,y,width,height"
+  const parts = value.split(",").map(Number);
+  if (parts.length !== 4 || parts.some((n) => isNaN(n))) return undefined;
+  return { x: parts[0]!, y: parts[1]!, width: parts[2]!, height: parts[3]! };
 }
 
 export default defineHandler(async (event) => {
@@ -119,31 +66,42 @@ export default defineHandler(async (event) => {
 
   const width = query.width ? Math.min(Math.max(parseInt(query.width), 100), 2560) : 1280;
   const height = query.height ? Math.min(Math.max(parseInt(query.height), 100), 1440) : 720;
-  const format: "png" | "jpeg" = query.format === "jpeg" ? "jpeg" : "png";
-  const quality = query.quality ? Math.min(Math.max(parseInt(query.quality), 1), 100) : 80;
-  const fullPage = query.fullPage === "true";
+  const type: "png" | "jpeg" = query.type === "jpeg" ? "jpeg" : "png";
+  const quality = query.quality ? Math.min(Math.max(parseInt(query.quality), 1), 100) : undefined;
+  const fullPage = query.fullPage === "true" ? true : undefined;
+  const omitBackground = query.omitBackground === "true" ? true : undefined;
   const mobile = query.mobile === "true";
   const darkMode = query.darkMode === "true";
   const waitUntil = (query.waitUntil || "domcontentloaded") as
     | "load"
     | "domcontentloaded"
     | "networkidle";
-  const delay = query.delay ? Math.min(Math.max(parseInt(query.delay), 0), 1000) : undefined;
+  const delay = query.delay ? Math.min(Math.max(parseInt(query.delay), 0), 10000) : undefined;
+  const timeout = query.timeout
+    ? Math.min(Math.max(parseInt(query.timeout), 1000), 30000)
+    : undefined;
 
-  // Generate cache key using ohash (exclude url from hash for predictable key)
+  // Generate cache key using ohash
   const cacheParams = {
     url,
     width,
     height,
-    format,
+    type,
     quality,
     fullPage,
+    clip: query.clip,
+    omitBackground,
+    scale: query.scale,
+    animations: query.animations,
+    caret: query.caret,
+    style: query.style,
+    timeout,
     mobile,
     darkMode,
     waitUntil,
     delay,
   };
-  const cacheKey = `screenshot:${hash(cacheParams)}.${format}`;
+  const cacheKey = `screenshot:${hash(cacheParams)}.${type}`;
   const storage = useStorage("cache");
   const etag = `"${cacheKey}"`;
   const cached = await storage.getItemRaw<Uint8Array>(cacheKey);
@@ -155,54 +113,55 @@ export default defineHandler(async (event) => {
     }
     event.res.headers.set("ETag", etag);
     event.res.headers.set("X-Cache", "HIT");
-    const contentType = format === "jpeg" ? "image/jpeg" : "image/png";
+    const contentType = type === "jpeg" ? "image/jpeg" : "image/png";
     event.res.headers.set("Content-Type", contentType);
     event.res.headers.set("Cache-Control", CACHE_MEDIUM);
     return Buffer.from(cached);
   }
 
-  await rateLimit(event, { limit: SCREENSHOT_RATE_LIMIT, window: SCREENSHOT_RATE_WINDOW });
+  await rateLimit(event, { limit: BROWSER_RATE_LIMIT, window: BROWSER_RATE_WINDOW });
 
-  // Get singleton browser instance
-  const browser = await getBrowser();
-  const viewport = { width, height };
-  const context = await createScreenshotContext(browser, viewport, darkMode, mobile);
-  let page: Page | undefined;
+  // Capture via Crawlee BrowserPool
+  const result = await captureScreenshot({
+    url,
+    width,
+    height,
+    type,
+    quality,
+    fullPage,
+    clip: parseClip(query.clip),
+    omitBackground,
+    scale: query.scale as "css" | "device" | undefined,
+    animations: query.animations as "disabled" | "allow" | undefined,
+    caret: query.caret as "hide" | "initial" | undefined,
+    style: query.style,
+    timeout,
+    mobile,
+    darkMode,
+    waitUntil,
+    delay,
+  });
 
-  try {
-    page = await context.newPage();
-    await optimizePage(page);
+  // Non-blocking cache write + dataset record
+  event.waitUntil(
+    Promise.all([
+      storage.setItemRaw(cacheKey, new Uint8Array(result.buffer), { ttl: BROWSER_TTL }),
+      screenshotDataset.pushData({
+        url,
+        type,
+        width,
+        height,
+        timestamp: Date.now(),
+      }),
+    ]),
+  );
 
-    await page.goto(url, {
-      waitUntil,
-      timeout: 10000,
-    });
+  // CORS is handled by global routeRules
+  const contentType = type === "jpeg" ? "image/jpeg" : "image/png";
+  event.res.headers.set("ETag", etag);
+  event.res.headers.set("X-Cache", "MISS");
+  event.res.headers.set("Content-Type", contentType);
+  event.res.headers.set("Cache-Control", CACHE_MEDIUM);
 
-    if (delay) {
-      await page.waitForTimeout(delay);
-    }
-
-    const screenshot = await page.screenshot({
-      type: format,
-      fullPage,
-      ...(format === "jpeg" && { quality }),
-    });
-
-    // Non-blocking cache write (24 hours TTL)
-    event.waitUntil(
-      storage.setItemRaw(cacheKey, new Uint8Array(screenshot), { ttl: SCREENSHOT_TTL }),
-    );
-
-    // CORS is handled by global routeRules
-    const contentType = format === "jpeg" ? "image/jpeg" : "image/png";
-    event.res.headers.set("ETag", etag);
-    event.res.headers.set("X-Cache", "MISS");
-    event.res.headers.set("Content-Type", contentType);
-    event.res.headers.set("Cache-Control", CACHE_MEDIUM);
-
-    return screenshot;
-  } finally {
-    await page?.close().catch(() => {});
-    await context.close().catch(() => {});
-  }
+  return result.buffer;
 });

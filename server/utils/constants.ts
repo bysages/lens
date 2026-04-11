@@ -3,8 +3,8 @@
 /** Font metadata (external API lists): 1 hour */
 export const FONT_META_TTL = 3600;
 
-/** Screenshots (websites change frequently): 1 day */
-export const SCREENSHOT_TTL = 86400;
+/** Browser-based services (screenshots, reader): 1 day */
+export const BROWSER_TTL = 86400;
 
 /** Image proxy (source images may update): 1 day */
 export const IMAGE_PROXY_TTL = 86400;
@@ -23,11 +23,11 @@ export const FONT_FILE_TTL = 2592000;
 
 // ── Rate Limit ──────────────────────────────────────
 
-/** Screenshot rate limit: 10 requests per minute per IP */
-export const SCREENSHOT_RATE_LIMIT = 10;
+/** Browser rate limit: 10 requests per minute per IP */
+export const BROWSER_RATE_LIMIT = 10;
 
-/** Screenshot rate limit window: 60 seconds */
-export const SCREENSHOT_RATE_WINDOW = 60;
+/** Browser rate limit window: 60 seconds */
+export const BROWSER_RATE_WINDOW = 60;
 
 // ── Cache-Control ──────────────────────────────────────
 
