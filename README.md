@@ -17,6 +17,7 @@
 - **🎨 Open Graph Images**: Dynamic OG image generation
 - **🎯 Favicon Extraction**: Smart favicon extraction from websites
 - **👤 Gravatar Proxy**: Cached Gravatar avatar proxy with email or hash input
+- **🤖 MCP Server**: Model Context Protocol server exposing all services as tools via JSON-RPC 2.0
 
 ### Performance & Scalability
 
@@ -95,13 +96,13 @@ GET /img/{modifiers}/{image_url}
 
 ```bash
 # Resize to 300px width, convert to WebP
-/img/w_300,f_webp/https://example.com/image.jpg
+https://api.bysages.com/img/w_300,f_webp/https://example.com/image.jpg
 
 # Create 200x200 square thumbnail
-/img/s_200x200,q_80/https://example.com/image.png
+https://api.bysages.com/img/s_200x200,q_80/https://example.com/image.png
 
 # Smart crop with high quality
-/img/w_400,h_300,c_fill,q_95/https://example.com/photo.jpg
+https://api.bysages.com/img/w_400,h_300,c_fill,q_95/https://example.com/photo.jpg
 ```
 
 **Supported Modifiers:**
@@ -130,31 +131,31 @@ GET /screenshot?url={website_url}&options
 
 ```bash
 # Basic screenshot
-/screenshot?url=https://example.com
+https://api.bysages.com/screenshot?url=https://example.com
 
 # JPEG with custom quality
-/screenshot?url=https://example.com&type=jpeg&quality=80
+https://api.bysages.com/screenshot?url=https://example.com&type=jpeg&quality=80
 
 # Mobile screenshot with custom viewport
-/screenshot?url=https://example.com&width=375&height=667&mobile=true
+https://api.bysages.com/screenshot?url=https://example.com&width=375&height=667&mobile=true
 
 # Full page capture
-/screenshot?url=https://example.com&fullPage=true
+https://api.bysages.com/screenshot?url=https://example.com&fullPage=true
 
 # Clip region (x,y,width,height)
-/screenshot?url=https://example.com&clip=0,0,400,300
+https://api.bysages.com/screenshot?url=https://example.com&clip=0,0,400,300
 
 # Transparent background
-/screenshot?url=https://example.com&omitBackground=true
+https://api.bysages.com/screenshot?url=https://example.com&omitBackground=true
 
 # Disable animations for clean capture
-/screenshot?url=https://example.com&animations=disabled
+https://api.bysages.com/screenshot?url=https://example.com&animations=disabled
 
 # Custom CSS scale
-/screenshot?url=https://example.com&scale=css
+https://api.bysages.com/screenshot?url=https://example.com&scale=css
 
 # Inject custom stylesheet
-/screenshot?url=https://example.com&style=body{background:red}
+https://api.bysages.com/screenshot?url=https://example.com&style=body{background:red}
 ```
 
 **Parameters:**
@@ -197,10 +198,10 @@ GET /og?title={title}&description={description}
 
 ```bash
 # Basic OG image
-/og?title=Welcome&description=Get started with Lens
+https://api.bysages.com/og?title=Welcome&description=Get%20started%20with%20Lens
 
 # Custom styling
-/og?title=Hello World&theme=dark&fontSize=72&width=1200&height=630
+https://api.bysages.com/og?title=Hello%20World&theme=dark&fontSize=72&width=1200&height=630
 ```
 
 **Caching:**
@@ -222,13 +223,13 @@ GET /reader?url={website_url}&options
 
 ```bash
 # Extract rendered HTML
-/reader?url=https://github.com/bysages/lens
+https://api.bysages.com/reader?url=https://github.com/bysages/lens
 
 # Convert to Markdown
-/reader?url=https://github.com/bysages/lens&format=markdown
+https://api.bysages.com/reader?url=https://github.com/bysages/lens&format=markdown
 
 # Wait for full page load
-/reader?url=https://github.com/bysages/lens&waitUntil=load
+https://api.bysages.com/reader?url=https://github.com/bysages/lens&waitUntil=load
 ```
 
 **Parameters:**
@@ -253,10 +254,10 @@ GET /favicon?url={website_url}&size={size}
 
 ```bash
 # Extract favicon
-/favicon?url=https://example.com
+https://api.bysages.com/favicon?url=github.com
 
 # Custom size
-/favicon?url=https://example.com&size=64
+https://api.bysages.com/favicon?url=github.com&size=64
 ```
 
 **Features:**
@@ -279,16 +280,16 @@ GET /gravatar?hash={md5}&{gravatar_params}
 
 ```bash
 # By path (drop-in replacement for Gravatar URLs)
-/gravatar/{md5}?size=200
+https://api.bysages.com/gravatar/{md5}?size=200
 
 # By email
-/gravatar?email=user@example.com
+https://api.bysages.com/gravatar?email=user@example.com
 
 # By MD5 hash
-/gravatar?hash={md5}
+https://api.bysages.com/gravatar?hash={md5}
 
 # With Gravatar parameters
-/gravatar?email=user@example.com&size=200&default=identicon&rating=pg
+https://api.bysages.com/gravatar?email=user@example.com&size=200&default=identicon&rating=pg
 ```
 
 **Parameters:**
@@ -297,6 +298,37 @@ GET /gravatar?hash={md5}&{gravatar_params}
 - `email` - Email address (will be MD5 hashed automatically)
 - `hash` - Pre-computed MD5 hash (alternative to email)
 - All other parameters are forwarded to [Gravatar API](https://docs.gravatar.com/api/images/)
+
+#### MCP Server
+
+Model Context Protocol server exposing all Lens services as tools via JSON-RPC 2.0 over HTTP.
+
+```
+POST /mcp
+```
+
+**Setup with Claude Desktop** (`claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "lens": {
+      "url": "https://api.bysages.com/mcp"
+    }
+  }
+}
+```
+
+**Available Tools:**
+
+| Tool         | Description                                             | Returns |
+| ------------ | ------------------------------------------------------- | ------- |
+| `reader`     | Extract article content from a URL (HTML/Markdown)      | text    |
+| `screenshot` | Capture a screenshot of a website                       | image   |
+| `favicon`    | Extract a website's favicon                             | image   |
+| `og`         | Generate a dynamic Open Graph image                     | image   |
+| `gravatar`   | Get a Gravatar avatar by email or hash                  | image   |
+| `img`        | Transform and optimize an image (resize, crop, convert) | image   |
 
 ### Fonts
 
@@ -330,16 +362,16 @@ GET /css2?family={font_family}&display=swap
 
 ```bash
 # Basic font (v1 API - pipe separator)
-/css?family=Roboto:wght@400;700|Open+Sans:wght@300;400;600&display=swap
+https://api.bysages.com/css?family=Roboto:wght@400;700|Open+Sans:wght@300;400;600&display=swap
 
 # Multiple fonts (v2 API - repeated family parameter)
-/css2?family=Inter:wght@400;700&family=Roboto:wght@300;400&display=swap
+https://api.bysages.com/css2?family=Inter:wght@400;700&family=Roboto:wght@300;400&display=swap
 
 # Variable fonts with weight range (v2 only)
-/css2?family=Inter:wght@200..800&display=swap
+https://api.bysages.com/css2?family=Inter:wght@200..800&display=swap
 
 # Font metadata
-/webfonts?sort=popularity&category=sans-serif
+https://api.bysages.com/webfonts?sort=popularity&category=sans-serif
 ```
 
 **Recommendations:**

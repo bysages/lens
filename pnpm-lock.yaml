@@ -9,7 +9,7 @@ importers:
   .:
     devDependencies:
       '@mozilla/readability':
-        specifier: ^0.6.0
+        specifier: 0.6.0
         version: 0.6.0
       '@types/node':
         specifier: 25.6.0
