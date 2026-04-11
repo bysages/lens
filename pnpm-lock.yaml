@@ -32,6 +32,9 @@ importers:
       ipx:
         specifier: 4.0.0-alpha.1
         version: 4.0.0-alpha.1
+      linkedom:
+        specifier: 0.18.12
+        version: 0.18.12
       nitro:
         specifier: 3.0.260311-beta
         version: 3.0.260311-beta(ioredis@5.10.1)(jiti@2.6.1)(vite@8.0.1(@emnapi/core@1.9.2)(@emnapi/runtime@1.9.2)(@types/node@25.6.0)(jiti@2.6.1))

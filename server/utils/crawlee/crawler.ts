@@ -1,6 +1,6 @@
 import { BrowserPool, PlaywrightPlugin } from "@crawlee/browser-pool";
 import { Readability } from "@mozilla/readability";
-import { JSDOM } from "jsdom";
+import { parseHTML } from "linkedom";
 import { type Page } from "playwright";
 
 // ── Types ──────────────────────────────────────────────
@@ -229,7 +229,7 @@ export interface ExtractResult {
 }
 
 /**
- * Extract article content from a URL using Playwright (rendered HTML) + Readability + JSDOM.
+ * Extract article content from a URL using Playwright (rendered HTML) + Readability + linkedom.
  * Parse runs entirely in Node.js — no browser-side script injection, no CSP issues.
  */
 export async function extractContent(params: ExtractParams): Promise<ExtractResult> {
@@ -247,8 +247,8 @@ export async function extractContent(params: ExtractParams): Promise<ExtractResu
 
     // Get fully rendered HTML from Playwright, then parse in Node.js
     const html = await page.content();
-    const dom = new JSDOM(html, { url });
-    const reader = new Readability(dom.window.document);
+    const { document } = parseHTML(html, { url });
+    const reader = new Readability(document);
     const article = reader.parse();
 
     return {

@@ -45,6 +45,7 @@
     "docen": "0.0.15",
     "ioredis": "5.10.1",
     "ipx": "4.0.0-alpha.1",
+    "linkedom": "0.18.12",
     "nitro": "3.0.260311-beta",
     "playwright": "1.59.1",
     "vite-plus": "0.1.16"
