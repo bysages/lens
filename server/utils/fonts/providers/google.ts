@@ -1,3 +1,4 @@
+import { HTTPError } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 
 import { FONT_META_TTL } from "../../constants";
@@ -88,7 +89,10 @@ export async function getGoogleFontsMeta(): Promise<GoogleFontMeta[]> {
   // Extract JSON from JSONP response
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
-    throw new Error("Invalid response from Google Fonts API");
+    throw new HTTPError({
+      status: 502,
+      message: "Invalid response from Google Fonts API",
+    });
   }
 
   const data = JSON.parse(jsonMatch[0]) as { familyMetadataList: GoogleFontMeta[] };

@@ -1,7 +1,7 @@
-import { parseHTML, generateMarkdown } from "docen";
 import { defineHandler, HTTPError, getQuery } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
+import TurndownService from "turndown";
 
 import {
   BROWSER_RATE_LIMIT,
@@ -82,8 +82,8 @@ export default defineHandler(async (event) => {
   let content: string;
 
   if (format === "markdown") {
-    const doc = parseHTML(article.content);
-    content = generateMarkdown(doc);
+    const turndown = new TurndownService({ headingStyle: "atx", codeBlockStyle: "fenced" });
+    content = turndown.turndown(article.content);
   } else {
     content = article.content;
   }

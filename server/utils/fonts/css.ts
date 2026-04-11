@@ -1,3 +1,5 @@
+import { HTTPError } from "nitro/h3";
+
 import { parseGoogleFontsFamily } from "./parse";
 import { getFontshareMeta } from "./providers/fontshare";
 // Font CSS generation utilities
@@ -202,7 +204,10 @@ export async function fetchGoogleFontsCSS(options: {
   const response = await fetch(googleApiUrl, { headers });
 
   if (!response.ok) {
-    throw new Error(`Google Fonts API returned ${response.status}`);
+    throw new HTTPError({
+      status: 502,
+      message: `Google Fonts API returned ${response.status}`,
+    });
   }
 
   let css = await response.text();
