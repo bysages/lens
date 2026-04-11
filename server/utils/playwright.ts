@@ -1,6 +1,6 @@
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
-import { type Browser, type BrowserContext, type Page } from "playwright";
+import { type Browser, type Page } from "playwright";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -59,10 +59,15 @@ async function getBrowser(): Promise<Browser> {
   if (browser) return browser;
   if (browserInitializing) return browserInitializing;
 
-  browserInitializing = launchBrowser().then((b) => {
-    browser = b;
-    return b;
-  });
+  browserInitializing = launchBrowser()
+    .then((b) => {
+      browser = b;
+      return b;
+    })
+    .catch((err) => {
+      browserInitializing = null;
+      throw err;
+    });
 
   return browserInitializing;
 }
@@ -71,6 +76,7 @@ async function retireBrowser(): Promise<void> {
   if (!browser) return;
   const b = browser;
   browser = null;
+  pageCount = 0;
   await b.close().catch(() => {});
 }
 
@@ -81,10 +87,9 @@ function resetIdleTimer(): void {
   }, IDLE_CLOSE_TIMEOUT_MS);
 }
 
-async function checkRetirement(): Promise<void> {
+function checkRetirement(): void {
   if (++pageCount >= MAX_PAGES_PER_BROWSER) {
-    pageCount = 0;
-    await retireBrowser();
+    void retireBrowser();
   }
 }
 
@@ -128,7 +133,7 @@ export async function withPage<T>(fn: (page: Page) => Promise<T>): Promise<T> {
     return await fn(page);
   } finally {
     await page.close().catch(() => {});
-    await checkRetirement();
+    checkRetirement();
   }
 }
 
@@ -144,7 +149,7 @@ export async function withContext<T>(
   const b = await getBrowser();
   resetIdleTimer();
 
-  const context: BrowserContext = await b.newContext({
+  const context = await b.newContext({
     viewport,
     colorScheme: darkMode ? "dark" : "light",
     userAgent: mobile
@@ -162,7 +167,7 @@ export async function withContext<T>(
   } finally {
     await page.close().catch(() => {});
     await context.close().catch(() => {});
-    await checkRetirement();
+    checkRetirement();
   }
 }
 
