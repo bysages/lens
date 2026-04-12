@@ -4,7 +4,14 @@ import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 import sharp from "sharp";
 
-import { CACHE_LONG, FAVICON_TTL } from "../utils/constants";
+import {
+  CACHE_LONG,
+  FAVICON_MAX_SIZE,
+  FAVICON_MIN_SIZE,
+  FAVICON_DEFAULT_SIZE,
+  FAVICON_TTL,
+} from "../utils/constants";
+import { assertSafeUrl } from "../utils/ssrf";
 
 export interface FaviconQuery {
   url: string;
@@ -319,8 +326,14 @@ export default defineHandler(async (event) => {
     });
   }
 
-  const size = Math.min(Math.max(parseInt(query.size || "32"), 16), 256);
+  const size = Math.min(
+    Math.max(parseInt(query.size || String(FAVICON_DEFAULT_SIZE)), FAVICON_MIN_SIZE),
+    FAVICON_MAX_SIZE,
+  );
   const url = String(query.url);
+
+  const hostname = url.startsWith("http") ? new URL(url).hostname : url;
+  assertSafeUrl(`https://${hostname}`);
 
   const cacheKey = `favicon:${hash({ url, size })}.png`;
   const storage = useStorage("cache");

@@ -3,7 +3,12 @@ import { defineHandler, getQuery } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 
-import { CACHE_IMMUTABLE, OG_IMAGE_TTL } from "../utils/constants";
+import {
+  CACHE_IMMUTABLE,
+  OG_DEFAULT_HEIGHT,
+  OG_DEFAULT_WIDTH,
+  OG_IMAGE_TTL,
+} from "../utils/constants";
 
 export interface OGQuery {
   title?: string;
@@ -19,8 +24,8 @@ export default defineHandler(async (event) => {
 
   const title = String(query.title || "Default Title").slice(0, 100);
   const description = query.description ? String(query.description).slice(0, 200) : undefined;
-  const width = Math.max(200, Math.min(parseInt(query.width || "1200"), 2000));
-  const height = Math.max(200, Math.min(parseInt(query.height || "630"), 2000));
+  const width = Math.max(200, Math.min(parseInt(query.width || String(OG_DEFAULT_WIDTH)), 2000));
+  const height = Math.max(200, Math.min(parseInt(query.height || String(OG_DEFAULT_HEIGHT)), 2000));
   const fontSize = Math.max(12, Math.min(parseInt(query.fontSize || "48"), 120));
   const theme: "light" | "dark" | "blue" | "green" =
     query.theme === "light" ||

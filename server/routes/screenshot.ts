@@ -7,9 +7,14 @@ import {
   BROWSER_RATE_WINDOW,
   BROWSER_TTL,
   CACHE_MEDIUM,
+  SCREENSHOT_DEFAULT_HEIGHT,
+  SCREENSHOT_DEFAULT_WIDTH,
+  SCREENSHOT_MAX_HEIGHT,
+  SCREENSHOT_MAX_WIDTH,
 } from "../utils/constants";
 import { captureScreenshot } from "../utils/playwright";
 import { rateLimit } from "../utils/rate-limit";
+import { assertSafeUrl } from "../utils/ssrf";
 
 export interface ScreenshotQuery {
   url: string;
@@ -56,8 +61,14 @@ export default defineHandler(async (event) => {
     url = `https://${url}`;
   }
 
-  const width = query.width ? Math.min(Math.max(parseInt(query.width), 100), 2560) : 1280;
-  const height = query.height ? Math.min(Math.max(parseInt(query.height), 100), 1440) : 720;
+  assertSafeUrl(url);
+
+  const width = query.width
+    ? Math.min(Math.max(parseInt(query.width), 100), SCREENSHOT_MAX_WIDTH)
+    : SCREENSHOT_DEFAULT_WIDTH;
+  const height = query.height
+    ? Math.min(Math.max(parseInt(query.height), 100), SCREENSHOT_MAX_HEIGHT)
+    : SCREENSHOT_DEFAULT_HEIGHT;
   const type: "png" | "jpeg" = query.type === "jpeg" ? "jpeg" : "png";
   const quality = query.quality ? Math.min(Math.max(parseInt(query.quality), 1), 100) : undefined;
   const fullPage = query.fullPage === "true" ? true : undefined;

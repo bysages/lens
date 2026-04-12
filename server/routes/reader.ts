@@ -11,6 +11,7 @@ import {
 } from "../utils/constants";
 import { extractContent } from "../utils/playwright";
 import { rateLimit } from "../utils/rate-limit";
+import { assertSafeUrl } from "../utils/ssrf";
 
 export interface ReaderQuery {
   url: string;
@@ -35,7 +36,9 @@ export default defineHandler(async (event) => {
     url = `https://${url}`;
   }
 
-  const format = query.format === "markdown" ? "markdown" : "html";
+  assertSafeUrl(url);
+
+  const format = query.format === "html" ? "html" : "markdown";
   const waitUntil = (query.waitUntil || "domcontentloaded") as
     | "load"
     | "domcontentloaded"

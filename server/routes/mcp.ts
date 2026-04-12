@@ -2,6 +2,8 @@ import { fetch } from "nitro";
 import { defineJsonRpcHandler, HTTPError } from "nitro/h3";
 
 import { version } from "../../package.json";
+import { BROWSER_RATE_LIMIT, BROWSER_RATE_WINDOW } from "../utils/constants";
+import { rateLimit } from "../utils/rate-limit";
 
 // ── MCP Protocol Methods ─────────────────────────────────
 
@@ -27,7 +29,7 @@ export default defineJsonRpcHandler({
         {
           name: "reader",
           description:
-            "Extract article content from a URL as cleaned HTML or Markdown. Returns title, content, and metadata.",
+            "Extract article content from a URL as Markdown (default) or cleaned HTML. Returns title, content, and metadata.",
           inputSchema: {
             type: "object" as const,
             properties: {
@@ -35,7 +37,7 @@ export default defineJsonRpcHandler({
               format: {
                 type: "string",
                 enum: ["html", "markdown"],
-                description: "Output format (default: html)",
+                description: "Output format (default: markdown)",
               },
             },
             required: ["url"],
@@ -161,11 +163,16 @@ export default defineJsonRpcHandler({
       ],
     }),
 
-    "tools/call": async ({ params }) => {
+    "tools/call": async ({ params }, event) => {
       const { name, arguments: args } = params as {
         name: string;
         arguments: Record<string, unknown>;
       };
+
+      // Rate limit browser-intensive tools
+      if (name === "reader" || name === "screenshot") {
+        await rateLimit(event, { limit: BROWSER_RATE_LIMIT, window: BROWSER_RATE_WINDOW });
+      }
 
       switch (name) {
         case "reader": {

@@ -12,7 +12,7 @@
 
 - **🖼️ Image Proxy**: IPX-powered image processing with resize, format conversion, optimization
 - **📸 Screenshot Capture**: Fast website screenshot service with resource optimization
-- **📄 Reader**: Article content extraction (HTML/Markdown) with Readability
+- **📄 Reader**: Article content extraction (Markdown/HTML) with Readability
 - **🅰️ Font Service**: Google Fonts compatible API with multiple providers
 - **🎨 Open Graph Images**: Dynamic OG image generation
 - **🎯 Favicon Extraction**: Smart favicon extraction from websites
@@ -213,7 +213,7 @@ https://api.bysages.com/og?title=Hello%20World&theme=dark&fontSize=72&width=1200
 
 #### Reader (Content Extraction)
 
-Extract rendered HTML or Markdown content from any URL:
+Extract rendered Markdown or HTML content from any URL:
 
 ```
 GET /reader?url={website_url}&options
@@ -222,11 +222,11 @@ GET /reader?url={website_url}&options
 **Examples:**
 
 ```bash
-# Extract rendered HTML
+# Extract rendered Markdown (default)
 https://api.bysages.com/reader?url=https://github.com/bysages/lens
 
-# Convert to Markdown
-https://api.bysages.com/reader?url=https://github.com/bysages/lens&format=markdown
+# Get HTML instead
+https://api.bysages.com/reader?url=https://github.com/bysages/lens&format=html
 
 # Wait for full page load
 https://api.bysages.com/reader?url=https://github.com/bysages/lens&waitUntil=load
@@ -237,7 +237,7 @@ https://api.bysages.com/reader?url=https://github.com/bysages/lens&waitUntil=loa
 | Parameter   | Description                                                           | Default            |
 | ----------- | --------------------------------------------------------------------- | ------------------ |
 | `url`       | Website URL (required)                                                | -                  |
-| `format`    | Output format (`html`, `markdown`)                                    | `html`             |
+| `format`    | Output format (`html`, `markdown`)                                    | `markdown`         |
 | `waitUntil` | Navigation wait condition (`load`, `domcontentloaded`, `networkidle`) | `domcontentloaded` |
 | `delay`     | Additional delay in ms after page load (0-10000)                      | -                  |
 | `timeout`   | Navigation timeout in ms (1000-30000)                                 | 10000              |
@@ -323,7 +323,7 @@ POST /mcp
 
 | Tool         | Description                                             | Returns |
 | ------------ | ------------------------------------------------------- | ------- |
-| `reader`     | Extract article content from a URL (HTML/Markdown)      | text    |
+| `reader`     | Extract article content from a URL (Markdown/HTML)      | text    |
 | `screenshot` | Capture a screenshot of a website                       | image   |
 | `favicon`    | Extract a website's favicon                             | image   |
 | `og`         | Generate a dynamic Open Graph image                     | image   |

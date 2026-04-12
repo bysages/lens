@@ -26,6 +26,9 @@ importers:
       ioredis:
         specifier: 5.10.1
         version: 5.10.1
+      ipdo:
+        specifier: 0.0.6
+        version: 0.0.6
       ipx:
         specifier: 4.0.0-alpha.1
         version: 4.0.0-alpha.1
@@ -1162,6 +1165,9 @@ packages:
   ioredis@5.10.1:
     resolution: {integrity: sha512-HuEDBTI70aYdx1v6U97SbNx9F1+svQKBDo30o0b9fw055LMepzpOOd0Ccg9Q6tbqmBSJaMuY0fB7yw9/vjBYCA==}
     engines: {node: '>=12.22.0'}
+
+  ipdo@0.0.6:
+    resolution: {integrity: sha512-R9ZDWatudDkd4kXSY3971HxEJoqJB4COBWKQaWM9JCzWm5JFeik5ooCy8WHtoIvoAWSOENweSqaER2pK/t1Usw==}
 
   ipx@4.0.0-alpha.1:
     resolution: {integrity: sha512-naIX/3xFfAOy5Wz2Z/UoQnpMVWGT0eblLSkHj3plcJsEuW040oiX/HqFwK1YygWUoROqSgFZkB6wTLra+GpwCQ==}
@@ -2468,6 +2474,8 @@ snapshots:
       standard-as-callback: 2.1.0
     transitivePeerDependencies:
       - supports-color
+
+  ipdo@0.0.6: {}
 
   ipx@4.0.0-alpha.1:
     dependencies:

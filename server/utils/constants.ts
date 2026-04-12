@@ -21,6 +21,38 @@ export const FAVICON_TTL = 2592000;
 /** Font files (static versioned assets): 30 days */
 export const FONT_FILE_TTL = 2592000;
 
+// ── Defaults & Limits ───────────────────────────────
+
+/** Screenshot: default viewport width */
+export const SCREENSHOT_DEFAULT_WIDTH = 1280;
+
+/** Screenshot: default viewport height */
+export const SCREENSHOT_DEFAULT_HEIGHT = 720;
+
+/** Screenshot: max viewport width */
+export const SCREENSHOT_MAX_WIDTH = 2560;
+
+/** Screenshot: max viewport height */
+export const SCREENSHOT_MAX_HEIGHT = 1440;
+
+/** Screenshot/Reader: default navigation timeout (ms) */
+export const BROWSER_TIMEOUT = 10000;
+
+/** Favicon: default icon size */
+export const FAVICON_DEFAULT_SIZE = 32;
+
+/** Favicon: min icon size */
+export const FAVICON_MIN_SIZE = 16;
+
+/** Favicon: max icon size */
+export const FAVICON_MAX_SIZE = 256;
+
+/** OG image: default width */
+export const OG_DEFAULT_WIDTH = 1200;
+
+/** OG image: default height */
+export const OG_DEFAULT_HEIGHT = 630;
+
 // ── Rate Limit ──────────────────────────────────────
 
 /** Browser rate limit: 10 requests per minute per IP */
