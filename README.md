@@ -22,8 +22,9 @@
 ### Performance & Scalability
 
 - **⚡ Redis Caching**: Redis-powered caching with 24-hour intelligent caching
-- **🚀 Resource Optimization**: Optimized page loading with blocked unnecessary resources
+- **🧭 On-Demand Browser**: Moli headless browser (Rust) driven over CDP — ~1/10 the memory of Chromium
 - **🛡️ Rate Limiting**: Rate limiting for expensive operations
+- **🔒 SSRF Protection**: URL validation plus browser-level private-network blocking
 - **🔄 Graceful Degradation**: Automatic fallbacks for missing services
 
 ## 📦 Quick Start
@@ -32,6 +33,7 @@
 
 - Node.js 22+
 - pnpm 10+ (recommended) or npm
+- [Moli](https://github.com/lexmount/moli) headless browser (screenshot/reader connect to it over CDP)
 
 ### Installation
 
@@ -50,7 +52,10 @@ cp .env.example .env
 ### Development
 
 ```bash
-# Start development server
+# Start the Moli browser server (default CDP endpoint: http://127.0.0.1:9222)
+moli serve --layout --resource
+
+# In another terminal, start development server
 pnpm dev
 
 # Build for production
@@ -74,6 +79,15 @@ ALLOWED_DOMAINS=example.com,cdn.example.com
 
 # Caching (significantly improves performance)
 REDIS_URL=redis://localhost:6379
+
+# Browser: Moli CDP endpoint (defaults to http://127.0.0.1:9222)
+BROWSER_CDP_ENDPOINT=http://127.0.0.1:9222
+
+# Browser: max concurrent pages per cluster worker (default 4)
+BROWSER_MAX_CONCURRENCY=4
+
+# Cluster: worker count (defaults to CPU core count)
+NITRO_CLUSTER_WORKERS=2
 ```
 
 See `.env.example` for all available options.
@@ -389,7 +403,7 @@ Lens is built with modern web standards and follows clean architecture principle
 - **Runtime**: Node.js 22+ with Nitro
 - **Language**: TypeScript with strict type safety
 - **Image Proxy**: IPX with Sharp
-- **Browser Automation**: Playwright with Crawlee BrowserPool
+- **Browser Automation**: [Moli](https://github.com/lexmount/moli) headless browser driven over CDP by Playwright
 - **Caching**: Redis with unstorage
 
 ### Design Principles
@@ -406,7 +420,7 @@ Lens is built with modern web standards and follows clean architecture principle
 
 - **Node.js** 22+ runtime
 - **pnpm** 10+ package manager
-- **Redis** (optional, for distributed caching)
+- **Redis** (bundled in Docker Compose; optional for other setups)
 
 ### Production Deployment
 
@@ -443,8 +457,8 @@ The application will be available at `http://localhost:3000`
 
 The stack includes:
 
-- **Lens** application on port 3000
-- **Redis** for distributed caching (optional but recommended)
+- **Lens** application on port 3000, with the Moli browser running inside the container
+- **Redis** for distributed caching, bounded with LRU eviction (512 MB)
 
 #### Option 2: Using Docker Run
 
@@ -452,10 +466,12 @@ The stack includes:
 # Pull the official image
 docker pull bysages/lens:latest
 
-# Run container with host network (recommended for accurate IP logging)
+# Run container with host network (recommended for accurate IP logging);
+# --init is needed because the image runs Moli alongside Node
 docker run -d \
   --name lens \
   --network host \
+  --init \
   --env-file .env \
   --restart unless-stopped \
   bysages/lens:latest
@@ -478,6 +494,7 @@ docker build -t lens .
 docker run -d \
   --name lens \
   --network host \
+  --init \
   --env-file .env \
   --restart unless-stopped \
   lens
@@ -493,6 +510,18 @@ ALLOWED_DOMAINS=example.com,cdn.example.com
 
 # Caching (significantly improves performance)
 REDIS_URL=redis://localhost:6379
+
+# Browser: Moli CDP endpoint (defaults to http://127.0.0.1:9222)
+BROWSER_CDP_ENDPOINT=http://127.0.0.1:9222
+
+# Browser: max concurrent pages per cluster worker (default 4)
+BROWSER_MAX_CONCURRENCY=4
+
+# Cluster: worker count (defaults to CPU core count)
+NITRO_CLUSTER_WORKERS=2
+
+# Moli server flags used by the Docker entrypoint
+MOLI_FLAGS=--layout --resource --block-private-networks
 ```
 
 See `.env.example` for all available options.

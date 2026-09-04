@@ -2,6 +2,8 @@ import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { type Browser, type Page } from "playwright";
 
+import { BROWSER_MAX_CONCURRENCY } from "./constants";
+
 // ── Types ──────────────────────────────────────────────
 
 /**
@@ -37,77 +39,73 @@ export interface ScreenshotResult {
   type: "png" | "jpeg";
 }
 
-// ── Browser Lifecycle ──────────────────────────────────
+// ── Browser Connection ─────────────────────────────────
 
-const MAX_PAGES_PER_BROWSER = 50;
-const IDLE_CLOSE_TIMEOUT_MS = 60_000;
+// The browser is a remote Moli instance serving CDP; loopback matches the
+// in-container deployment where the entrypoint supervises `moli serve`.
+const CDP_ENDPOINT = process.env.BROWSER_CDP_ENDPOINT || "http://127.0.0.1:9222";
 
 let browser: Browser | null = null;
 let browserInitializing: Promise<Browser> | null = null;
-let pageCount = 0;
-let idleTimer: ReturnType<typeof setTimeout> | null = null;
-
-async function launchBrowser(): Promise<Browser> {
-  const { chromium } = await import("playwright");
-  return chromium.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox", "--disable-dev-shm-usage"],
-  });
-}
 
 async function getBrowser(): Promise<Browser> {
   if (browser) return browser;
   if (browserInitializing) return browserInitializing;
 
-  browserInitializing = launchBrowser()
-    .then((b) => {
-      browser = b;
-      return b;
-    })
-    .catch((err) => {
+  browserInitializing = (async () => {
+    const { chromium } = await import("playwright");
+    const b = await chromium.connectOverCDP(CDP_ENDPOINT);
+    // Self-heal: drop the dead connection so the next request reconnects.
+    b.on("disconnected", () => {
+      browser = null;
       browserInitializing = null;
-      throw err;
     });
+    browser = b;
+    return b;
+  })().catch((err) => {
+    browserInitializing = null;
+    throw err;
+  });
 
   return browserInitializing;
 }
 
-async function retireBrowser(): Promise<void> {
-  if (!browser) return;
-  const b = browser;
-  browser = null;
-  pageCount = 0;
-  await b.close().catch(() => {});
-}
+// ── Concurrency Semaphore ──────────────────────────────
 
-function resetIdleTimer(): void {
-  if (idleTimer) clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => {
-    void retireBrowser();
-  }, IDLE_CLOSE_TIMEOUT_MS);
-}
+const MAX_CONCURRENCY =
+  Number.parseInt(process.env.BROWSER_MAX_CONCURRENCY || "") || BROWSER_MAX_CONCURRENCY;
 
-function checkRetirement(): void {
-  if (++pageCount >= MAX_PAGES_PER_BROWSER) {
-    void retireBrowser();
+let activeSlots = 0;
+const slotWaiters: Array<() => void> = [];
+
+async function acquireSlot(): Promise<void> {
+  if (activeSlots < MAX_CONCURRENCY) {
+    activeSlots++;
+    return;
   }
+  await new Promise<void>((resolve) => {
+    slotWaiters.push(() => {
+      activeSlots++;
+      resolve();
+    });
+  });
+}
+
+function releaseSlot(): void {
+  const next = slotWaiters.shift();
+  if (next) next();
+  else activeSlots--;
 }
 
 // ── Page Helpers ───────────────────────────────────────
 
 /**
- * Strip animations/transitions and block unnecessary resource types.
+ * Prepare a page for rendering: bound timeouts and freeze CSS animations.
+ * Resource blocking via route interception is deliberately avoided — it
+ * stalls the browser on resource-heavy pages; web fonts also improve
+ * screenshot typography.
  */
 async function optimizePage(page: Page): Promise<void> {
-  await page.route("**/*", (route) => {
-    const resourceType = route.request().resourceType();
-    if (["font", "media", "websocket", "other", "manifest", "texttrack"].includes(resourceType)) {
-      void route.abort();
-    } else {
-      void route.continue();
-    }
-  });
-
   page.setDefaultTimeout(10000);
   page.setDefaultNavigationTimeout(10000);
 
@@ -123,17 +121,19 @@ async function optimizePage(page: Page): Promise<void> {
  * Page is automatically closed after the callback completes.
  */
 export async function withPage<T>(fn: (page: Page) => Promise<T>): Promise<T> {
-  const b = await getBrowser();
-  resetIdleTimer();
-
-  const page = await b.newPage();
-  await optimizePage(page);
-
+  await acquireSlot();
   try {
-    return await fn(page);
+    const b = await getBrowser();
+    const page = await b.newPage();
+    await optimizePage(page);
+
+    try {
+      return await fn(page);
+    } finally {
+      await page.close().catch(() => {});
+    }
   } finally {
-    await page.close().catch(() => {});
-    checkRetirement();
+    releaseSlot();
   }
 }
 
@@ -146,28 +146,31 @@ export async function withContext<T>(
   mobile: boolean,
   fn: (page: Page) => Promise<T>,
 ): Promise<T> {
-  const b = await getBrowser();
-  resetIdleTimer();
-
-  const context = await b.newContext({
-    viewport,
-    colorScheme: darkMode ? "dark" : "light",
-    userAgent: mobile
-      ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-      : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    isMobile: mobile,
-    hasTouch: mobile,
-  });
-
-  const page = await context.newPage();
-  await optimizePage(page);
-
+  await acquireSlot();
   try {
-    return await fn(page);
+    const b = await getBrowser();
+
+    const context = await b.newContext({
+      viewport,
+      colorScheme: darkMode ? "dark" : "light",
+      userAgent: mobile
+        ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
+        : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      isMobile: mobile,
+      hasTouch: mobile,
+    });
+
+    const page = await context.newPage();
+    await optimizePage(page);
+
+    try {
+      return await fn(page);
+    } finally {
+      await page.close().catch(() => {});
+      await context.close().catch(() => {});
+    }
   } finally {
-    await page.close().catch(() => {});
-    await context.close().catch(() => {});
-    checkRetirement();
+    releaseSlot();
   }
 }
 

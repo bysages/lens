@@ -2,19 +2,40 @@ services:
   app:
     image: bysages/lens:latest
     restart: unless-stopped
+    # Host networking keeps real client IPs for rate limiting (Linux hosts;
+    # on Docker Desktop switch to ports: "${PORT:-3000}:3000" instead)
     network_mode: host
+    # init reaps orphaned processes and forwards signals (Moli runs alongside Node)
+    init: true
     environment:
       # Node Environment
       NODE_ENV: production
       PORT: ${PORT:-3000}
       # Image Proxy Security
       ALLOWED_DOMAINS: ${ALLOWED_DOMAINS:-}
-      # Caching (optional - configure your external Redis)
-      REDIS_URL: ${REDIS_URL:-}
+      # Caching: LRU-evicted and shared across cluster workers
+      REDIS_URL: redis://127.0.0.1:6379
+    depends_on:
+      redis:
+        condition: service_healthy
     healthcheck:
       test:
-        ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:${PORT:-3000}"]
+        ["CMD", "curl", "--no-verbose", "--tries=1", "--spider", "http://localhost:${PORT:-3000}"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 40s
+
+  redis:
+    image: redis:alpine
+    restart: unless-stopped
+    # Bounded cache: evict least-recently-used keys instead of growing forever
+    command: ["redis-server", "--maxmemory", "512mb", "--maxmemory-policy", "allkeys-lru"]
+    ports:
+      # Loopback only: reachable by the host-networked app, invisible to the outside
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

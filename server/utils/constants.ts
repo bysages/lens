@@ -15,11 +15,11 @@ export const OG_IMAGE_TTL = 604800;
 /** Gravatar (avatar images change infrequently): 7 days */
 export const GRAVATAR_TTL = 604800;
 
-/** Favicons (rarely change): 30 days */
-export const FAVICON_TTL = 2592000;
+/** Favicons (rarely change): 24 days — unstorage memory driver uses setTimeout(ttl * 1e3), which overflows a 32-bit signed integer above 2147483s */
+export const FAVICON_TTL = 2073600;
 
-/** Font files (static versioned assets): 30 days */
-export const FONT_FILE_TTL = 2592000;
+/** Font files (static versioned assets): 24 days, capped for the same setTimeout limit */
+export const FONT_FILE_TTL = 2073600;
 
 // ── Defaults & Limits ───────────────────────────────
 
@@ -37,6 +37,9 @@ export const SCREENSHOT_MAX_HEIGHT = 1440;
 
 /** Screenshot/Reader: default navigation timeout (ms) */
 export const BROWSER_TIMEOUT = 10000;
+
+/** Browser: max concurrent pages per worker */
+export const BROWSER_MAX_CONCURRENCY = 4;
 
 /** Favicon: default icon size */
 export const FAVICON_DEFAULT_SIZE = 32;

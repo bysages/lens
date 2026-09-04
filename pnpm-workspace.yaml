@@ -1,2 +1,6 @@
 allowBuilds:
   sharp: true
+
+# pnpm 11 ignores shamefully-hoist from .npmrc; hoisting keeps transitive
+# deps (vite, ohash, sharp) resolvable by the package.json scripts
+shamefullyHoist: true
