@@ -1,5 +1,4 @@
 import { defineNitroConfig } from "nitro/config";
-import { env } from "std-env";
 
 import pkg from "./package.json";
 
@@ -32,12 +31,11 @@ export default defineNitroConfig({
   },
   storage: {
     cache: {
-      // FS driver does not support TTL, only use redis or memory
-      driver: env.REDIS_URL ? "redis" : "memory",
-      ...(env.REDIS_URL && {
-        url: env.REDIS_URL,
-        base: "lens",
-      }),
+      // FS driver does not support TTL; memory is the build-time default.
+      // server/plugins/storage.ts mounts redis over this at runtime when
+      // REDIS_URL is set — config-level env checks are evaluated at build
+      // time and would freeze the driver into the bundle.
+      driver: "memory",
     },
   },
   devStorage: {
