@@ -1,7 +1,6 @@
 # Lens
 
 ![GitHub](https://img.shields.io/github/license/bysages/lens)
-![GitHub Actions](https://img.shields.io/github/actions/workflow/status/bysages/lens/docker-build.yml)
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](https://www.contributor-covenant.org/version/2/1/code_of_conduct/)
 
 > A high-performance image proxy and web services toolkit built with modern TypeScript. Lens provides a comprehensive suite of web utilities including image processing, screenshot capture, font serving, and more.
@@ -24,7 +23,7 @@
 - **⚡ Redis Caching**: Redis-powered caching with 24-hour intelligent caching
 - **🧭 On-Demand Browser**: Moli headless browser (Rust) driven over CDP — ~1/10 the memory of Chromium
 - **🛡️ Rate Limiting**: Rate limiting for expensive operations
-- **🔒 SSRF Protection**: URL validation plus browser-level private-network blocking
+- **🔒 SSRF Protection**: URL validation with DNS resolution checks, plus browser-level private-network blocking
 - **🔄 Graceful Degradation**: Automatic fallbacks for missing services
 
 ## 📦 Quick Start
@@ -77,11 +76,18 @@ All configurations are optional and will gracefully degrade:
 # Image proxy security
 ALLOWED_DOMAINS=example.com,cdn.example.com
 
+# Set only when requests arrive through a trusted reverse proxy
+TRUST_PROXY=1
+
 # Caching (significantly improves performance)
 REDIS_URL=redis://localhost:6379
 
 # Browser: Moli CDP endpoint (defaults to http://127.0.0.1:9222)
 BROWSER_CDP_ENDPOINT=http://127.0.0.1:9222
+
+# Browser: optional user-agent overrides (default: the engine's own UA)
+#BROWSER_USER_AGENT=...
+#BROWSER_USER_AGENT_MOBILE=...
 
 # Browser: max concurrent pages per cluster worker (default 4)
 BROWSER_MAX_CONCURRENCY=4
@@ -159,9 +165,6 @@ https://api.bysages.com/screenshot?url=https://example.com&fullPage=true
 # Clip region (x,y,width,height)
 https://api.bysages.com/screenshot?url=https://example.com&clip=0,0,400,300
 
-# Transparent background
-https://api.bysages.com/screenshot?url=https://example.com&omitBackground=true
-
 # Disable animations for clean capture
 https://api.bysages.com/screenshot?url=https://example.com&animations=disabled
 
@@ -174,31 +177,30 @@ https://api.bysages.com/screenshot?url=https://example.com&style=body{background
 
 **Parameters:**
 
-| Parameter        | Description                                                           | Default            |
-| ---------------- | --------------------------------------------------------------------- | ------------------ |
-| `url`            | Website URL (required)                                                | -                  |
-| `width`          | Viewport width (100-2560)                                             | 1280               |
-| `height`         | Viewport height (100-1440)                                            | 720                |
-| `type`           | Output format (`png`, `jpeg`)                                         | `png`              |
-| `quality`        | Image quality, 1-100 (jpeg only)                                      | -                  |
-| `fullPage`       | Capture full scrollable page (`true`/`false`)                         | `false`            |
-| `clip`           | Clip region as `x,y,width,height`                                     | -                  |
-| `omitBackground` | Hide default white background (`true`/`false`, png only)              | `false`            |
-| `scale`          | Screenshot scale (`css` for CSS pixels, `device` for device pixels)   | `device`           |
-| `animations`     | Animation handling (`disabled` or `allow`)                            | `allow`            |
-| `caret`          | Text caret (`hide` or `initial`)                                      | `hide`             |
-| `style`          | Custom CSS stylesheet to apply                                        | -                  |
-| `timeout`        | Navigation timeout in ms (1000-30000)                                 | 10000              |
-| `mobile`         | Mobile viewport (`true`/`false`)                                      | `false`            |
-| `darkMode`       | Dark mode (`true`/`false`)                                            | `false`            |
-| `waitUntil`      | Navigation wait condition (`load`, `domcontentloaded`, `networkidle`) | `domcontentloaded` |
-| `delay`          | Additional delay in ms after page load (0-10000)                      | -                  |
+| Parameter    | Description                                                           | Default            |
+| ------------ | --------------------------------------------------------------------- | ------------------ |
+| `url`        | Website URL (required)                                                | -                  |
+| `width`      | Viewport width (100-2560)                                             | 1280               |
+| `height`     | Viewport height (100-1440)                                            | 720                |
+| `type`       | Output format (`png`, `jpeg`)                                         | `png`              |
+| `quality`    | Image quality, 1-100 (jpeg only)                                      | -                  |
+| `fullPage`   | Capture full scrollable page (`true`/`false`)                         | `false`            |
+| `clip`       | Clip region as `x,y,width,height`                                     | -                  |
+| `scale`      | Screenshot scale (`css` for CSS pixels, `device` for device pixels)   | `device`           |
+| `animations` | Animation handling (`disabled` or `allow`)                            | `allow`            |
+| `caret`      | Text caret (`hide` or `initial`)                                      | `hide`             |
+| `style`      | Custom CSS stylesheet to apply                                        | -                  |
+| `timeout`    | Navigation timeout in ms (1000-30000)                                 | 10000              |
+| `mobile`     | Mobile viewport (`true`/`false`)                                      | `false`            |
+| `darkMode`   | Dark mode (`true`/`false`)                                            | `false`            |
+| `waitUntil`  | Navigation wait condition (`load`, `domcontentloaded`, `networkidle`) | `domcontentloaded` |
+| `delay`      | Additional delay in ms after page load (0-10000)                      | -                  |
 
 **Performance Notes:**
 
 - Screenshots are cached for 1 day with rate limiting
 - Identical requests return cached results with sub-second response times
-- Resource optimization (blocking fonts, media, websockets) speeds up screenshot generation by 60-80%
+- The Moli browser loads fonts and media for rendering fidelity; use `animations=disabled` to freeze CSS animations at capture time
 
 #### Open Graph Images
 
@@ -455,6 +457,9 @@ docker-compose down
 
 The application will be available at `http://localhost:3000`
 
+`GET /healthz` reports liveness including browser (CDP) availability — the
+compose healthcheck and orchestrator probes should point at it.
+
 The stack includes:
 
 - **Lens** application on port 3000, with the Moli browser running inside the container
@@ -508,6 +513,9 @@ All configurations are optional:
 # Image Proxy Security
 ALLOWED_DOMAINS=example.com,cdn.example.com
 
+# Set only when requests arrive through a trusted reverse proxy
+TRUST_PROXY=1
+
 # Caching (significantly improves performance)
 REDIS_URL=redis://localhost:6379
 
@@ -521,7 +529,8 @@ BROWSER_MAX_CONCURRENCY=4
 NITRO_CLUSTER_WORKERS=2
 
 # Moli server flags used by the Docker entrypoint
-MOLI_FLAGS=--layout --resource --block-private-networks
+# (--block-private-networks is always enforced by the entrypoint)
+MOLI_FLAGS=--layout --resource
 ```
 
 See `.env.example` for all available options.
