@@ -1,9 +1,9 @@
 import { defineHandler, getQuery } from "nitro/h3";
-import { useStorage } from "nitro/storage";
-import { hash } from "ohash";
 
-import { CACHE_SHORT, FONT_META_TTL } from "../utils/constants";
+import { serveCached } from "../utils/cache";
+import { CACHE_SHORT, FONT_META_TTL, MAX_CACHE_ENTRY_BYTES } from "../utils/constants";
 import { getWebfontsList } from "../utils/fonts/webfonts";
+import { firstString } from "../utils/params";
 
 export interface WebfontsQuery {
   provider?: string;
@@ -16,35 +16,21 @@ export interface WebfontsQuery {
 export default defineHandler(async (event) => {
   const query = getQuery<WebfontsQuery>(event);
 
-  const provider = query.provider || "google";
-  const sort = query.sort || "";
-  const family = query.family;
-  const subset = query.subset;
-  const category = query.category;
+  const provider = firstString(query.provider) || "google";
+  const sort = firstString(query.sort) || "";
+  const family = firstString(query.family);
+  const subset = firstString(query.subset);
+  const category = firstString(query.category);
 
-  const cacheKey = `webfonts:${hash({ provider, sort, family, subset, category })}.json`;
-  const storage = useStorage("cache");
-  const etag = `"${cacheKey}"`;
-  const cached = await storage.getItem(cacheKey);
-
-  if (cached) {
-    if (event.req.headers.get("if-none-match") === etag) {
-      event.res.status = 304;
-      return null;
-    }
-    event.res.headers.set("ETag", etag);
-    event.res.headers.set("X-Cache", "HIT");
-    event.res.headers.set("Cache-Control", CACHE_SHORT);
-    return cached;
-  }
-
-  const response = await getWebfontsList(provider, { family, subset, category }, sort);
-
-  await storage.setItem(cacheKey, response, { ttl: FONT_META_TTL }); // 1 hour
-
-  event.res.headers.set("ETag", etag);
-  event.res.headers.set("X-Cache", "MISS");
-  event.res.headers.set("Cache-Control", CACHE_SHORT);
-
-  return response;
+  return serveCached(event, {
+    key: `webfonts:${provider}:${sort}:${family ?? "all"}:${subset ?? "all"}:${category ?? "all"}.json`,
+    ttl: FONT_META_TTL,
+    contentType: "application/json; charset=utf-8",
+    cacheControl: CACHE_SHORT,
+    maxBytes: MAX_CACHE_ENTRY_BYTES,
+    produce: async () => {
+      const response = await getWebfontsList(provider, { family, subset, category }, sort);
+      return { data: JSON.stringify(response) };
+    },
+  });
 });

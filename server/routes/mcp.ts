@@ -2,8 +2,14 @@ import { fetch } from "nitro";
 import { defineJsonRpcHandler, HTTPError } from "nitro/h3";
 
 import { version } from "../../package.json";
-import { BROWSER_RATE_LIMIT, BROWSER_RATE_WINDOW } from "../utils/constants";
+import { BROWSER_RATE_LIMIT, RATE_WINDOW } from "../utils/constants";
 import { rateLimit } from "../utils/rate-limit";
+
+/** Clamp a numeric tool argument; JSON numbers can still be Infinity. */
+function clampNumber(value: unknown, min: number, max: number): number | undefined {
+  if (typeof value !== "number" || !Number.isFinite(value)) return undefined;
+  return Math.min(Math.max(Math.trunc(value), min), max);
+}
 
 // ── MCP Protocol Methods ─────────────────────────────────
 
@@ -164,25 +170,36 @@ export default defineJsonRpcHandler({
     }),
 
     "tools/call": async ({ params }, event) => {
-      const { name, arguments: args } = params as {
-        name: string;
-        arguments: Record<string, unknown>;
+      const { name, arguments: args } = (params ?? {}) as {
+        name?: string;
+        arguments?: Record<string, unknown>;
       };
+      if (typeof name !== "string") {
+        throw new HTTPError({ status: 400, message: "Missing tool name" });
+      }
+      const safeArgs: Record<string, unknown> = args ?? {};
 
-      // Rate limit browser-intensive tools
+      // Per-client budget for browser-intensive tools. The internally
+      // fetched route applies the same "browser" scope again against the
+      // internal request, which acts as a global capacity guard for the
+      // shared browser.
       if (name === "reader" || name === "screenshot") {
-        await rateLimit(event, { limit: BROWSER_RATE_LIMIT, window: BROWSER_RATE_WINDOW });
+        await rateLimit(event, {
+          limit: BROWSER_RATE_LIMIT,
+          window: RATE_WINDOW,
+          scope: "browser",
+        });
       }
 
       switch (name) {
         case "reader": {
-          const { url, format } = args;
+          const { url, format } = safeArgs;
           if (typeof url !== "string") {
             throw new HTTPError({ status: 400, message: "Missing or invalid 'url' parameter" });
           }
 
           const searchParams = new URLSearchParams({ url });
-          if (format === "markdown") searchParams.set("format", "markdown");
+          if (format === "markdown" || format === "html") searchParams.set("format", format);
 
           const res = await fetch(`/reader?${searchParams}`);
 
@@ -202,17 +219,23 @@ export default defineJsonRpcHandler({
         }
 
         case "screenshot": {
-          const { url, width, height, type, fullPage, quality } = args;
+          const { url, width, height, type, fullPage, quality } = safeArgs;
           if (typeof url !== "string") {
             throw new HTTPError({ status: 400, message: "Missing or invalid 'url' parameter" });
           }
 
           const searchParams = new URLSearchParams({ url });
-          if (typeof width === "number") searchParams.set("width", String(width));
-          if (typeof height === "number") searchParams.set("height", String(height));
+          const clampedWidth = clampNumber(width, 100, 2560);
+          const clampedHeight = clampNumber(height, 100, 1440);
+          const clampedQuality = clampNumber(quality, 1, 100);
+          if (clampedWidth !== undefined) searchParams.set("width", String(clampedWidth));
+          if (clampedHeight !== undefined) searchParams.set("height", String(clampedHeight));
           if (type === "jpeg") searchParams.set("type", "jpeg");
           if (fullPage === true) searchParams.set("fullPage", "true");
-          if (typeof quality === "number") searchParams.set("quality", String(quality));
+          // quality only applies to jpeg — png requests would 500
+          if (type === "jpeg" && clampedQuality !== undefined) {
+            searchParams.set("quality", String(clampedQuality));
+          }
 
           const res = await fetch(`/screenshot?${searchParams}`);
 
@@ -240,13 +263,14 @@ export default defineJsonRpcHandler({
         }
 
         case "favicon": {
-          const { url, size } = args;
+          const { url, size } = safeArgs;
           if (typeof url !== "string") {
             throw new HTTPError({ status: 400, message: "Missing or invalid 'url' parameter" });
           }
 
           const searchParams = new URLSearchParams({ url });
-          if (typeof size === "number") searchParams.set("size", String(size));
+          const clampedSize = clampNumber(size, 16, 256);
+          if (clampedSize !== undefined) searchParams.set("size", String(clampedSize));
 
           const res = await fetch(`/favicon?${searchParams}`);
 
@@ -273,16 +297,19 @@ export default defineJsonRpcHandler({
         }
 
         case "og": {
-          const { title, description, width, height, fontSize, theme } = args;
+          const { title, description, width, height, fontSize, theme } = safeArgs;
           if (typeof title !== "string") {
             throw new HTTPError({ status: 400, message: "Missing or invalid 'title' parameter" });
           }
 
           const searchParams = new URLSearchParams({ title });
           if (typeof description === "string") searchParams.set("description", description);
-          if (typeof width === "number") searchParams.set("width", String(width));
-          if (typeof height === "number") searchParams.set("height", String(height));
-          if (typeof fontSize === "number") searchParams.set("fontSize", String(fontSize));
+          const clampedWidth = clampNumber(width, 200, 2000);
+          const clampedHeight = clampNumber(height, 200, 2000);
+          const clampedFontSize = clampNumber(fontSize, 12, 120);
+          if (clampedWidth !== undefined) searchParams.set("width", String(clampedWidth));
+          if (clampedHeight !== undefined) searchParams.set("height", String(clampedHeight));
+          if (clampedFontSize !== undefined) searchParams.set("fontSize", String(clampedFontSize));
           if (typeof theme === "string") searchParams.set("theme", theme);
 
           const res = await fetch(`/og?${searchParams}`);
@@ -310,7 +337,7 @@ export default defineJsonRpcHandler({
         }
 
         case "gravatar": {
-          const { email, hash, size, default: defaultImg } = args;
+          const { email, hash, size, default: defaultImg } = safeArgs;
           if (typeof email !== "string" && typeof hash !== "string") {
             throw new HTTPError({ status: 400, message: "Missing 'email' or 'hash' parameter" });
           }
@@ -318,7 +345,8 @@ export default defineJsonRpcHandler({
           const searchParams = new URLSearchParams();
           if (typeof email === "string") searchParams.set("email", email);
           if (typeof hash === "string") searchParams.set("hash", hash);
-          if (typeof size === "number") searchParams.set("size", String(size));
+          const clampedSize = clampNumber(size, 1, 2048);
+          if (clampedSize !== undefined) searchParams.set("size", String(clampedSize));
           if (typeof defaultImg === "string") searchParams.set("default", defaultImg);
 
           const res = await fetch(`/gravatar?${searchParams}`);
@@ -345,23 +373,27 @@ export default defineJsonRpcHandler({
         }
 
         case "img": {
-          const { url, width, height, format, quality, fit } = args;
+          const { url, width, height, format, quality, fit } = safeArgs;
           if (typeof url !== "string") {
             throw new HTTPError({ status: 400, message: "Missing or invalid 'url' parameter" });
           }
 
           // Build IPX modifier path: /img/{modifiers}/{image_url}
+          const clampedWidth = clampNumber(width, 1, 8192);
+          const clampedHeight = clampNumber(height, 1, 8192);
+          const clampedQuality = clampNumber(quality, 1, 100);
           const modifiers: string[] = [];
-          if (typeof width === "number" && typeof height === "number")
-            modifiers.push(`s_${width}x${height}`);
-          else if (typeof width === "number") modifiers.push(`w_${width}`);
-          else if (typeof height === "number") modifiers.push(`h_${height}`);
+          if (clampedWidth !== undefined && clampedHeight !== undefined)
+            modifiers.push(`s_${clampedWidth}x${clampedHeight}`);
+          else if (clampedWidth !== undefined) modifiers.push(`w_${clampedWidth}`);
+          else if (clampedHeight !== undefined) modifiers.push(`h_${clampedHeight}`);
           if (typeof format === "string") modifiers.push(`f_${format}`);
-          if (typeof quality === "number") modifiers.push(`q_${quality}`);
+          if (clampedQuality !== undefined) modifiers.push(`q_${clampedQuality}`);
           if (typeof fit === "string") modifiers.push(`c_${fit}`);
 
           const modifierStr = modifiers.length > 0 ? modifiers.join(",") + "/" : "";
-          const res = await fetch(`/img/${modifierStr}${url}`);
+          // The URL is a path segment — encode it so ?, #, and spaces survive
+          const res = await fetch(`/img/${modifierStr}${encodeURIComponent(url)}`);
 
           if (!res.ok) {
             return {

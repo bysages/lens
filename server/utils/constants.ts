@@ -58,11 +58,23 @@ export const OG_DEFAULT_HEIGHT = 630;
 
 // ── Rate Limit ──────────────────────────────────────
 
-/** Browser rate limit: 10 requests per minute per IP */
+/** Browser rate limit: 10 requests per minute per IP (shared by reader/screenshot/MCP) */
 export const BROWSER_RATE_LIMIT = 10;
 
-/** Browser rate limit window: 60 seconds */
-export const BROWSER_RATE_WINDOW = 60;
+/** Favicon rate limit: extraction fans out ~70 upstream probes per cache miss */
+export const FAVICON_RATE_LIMIT = 60;
+
+/** Image proxy rate limit: fetching arbitrary remote images is bandwidth-amplifying */
+export const IMAGE_RATE_LIMIT = 120;
+
+/** Gravatar rate limit: proxies upstream avatar fetches */
+export const GRAVATAR_RATE_LIMIT = 120;
+
+/** Shared rate limit window: 60 seconds */
+export const RATE_WINDOW = 60;
+
+/** Cache entries larger than this are served but not persisted (the memory driver has no eviction) */
+export const MAX_CACHE_ENTRY_BYTES = 10 * 1024 * 1024;
 
 // ── Cache-Control ──────────────────────────────────────
 

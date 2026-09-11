@@ -1,12 +1,22 @@
 import { createHash } from "node:crypto";
 
 import { defineHandler, HTTPError, getRequestURL, getQuery, getRouterParam } from "nitro/h3";
-import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 
-import { CACHE_LONG, GRAVATAR_TTL } from "../../utils/constants";
+import { serveCached } from "../../utils/cache";
+import {
+  CACHE_LONG,
+  GRAVATAR_RATE_LIMIT,
+  GRAVATAR_TTL,
+  MAX_CACHE_ENTRY_BYTES,
+  RATE_WINDOW,
+} from "../../utils/constants";
+import { firstString } from "../../utils/params";
+import { rateLimit } from "../../utils/rate-limit";
+import { safeFetch } from "../../utils/ssrf";
 
 const GRAVATAR_BASE = "https://www.gravatar.com/avatar";
+const MD5_PATTERN = /^[a-f0-9]{32}$/i;
 
 export default defineHandler(async (event) => {
   const query = getQuery(event);
@@ -14,18 +24,21 @@ export default defineHandler(async (event) => {
 
   // Path format: /gravatar/{md5}?size=200 — use path directly, ignore email/hash
   // Query format: /gravatar?email=xxx or /gravatar?hash=xxx
-  const md5 = pathHash
-    ? pathHash
-    : query.hash ||
-      createHash("md5")
-        .update((query.email as string).trim().toLowerCase())
-        .digest("hex");
-
-  if (!md5) {
-    throw new HTTPError({
-      status: 400,
-      message: "Missing email, hash parameter, or path hash",
-    });
+  // The hash doubles as the storage key and URL path segment, so it must be
+  // a well-formed MD5 before anything else happens
+  let md5: string;
+  if (pathHash || query.hash !== undefined) {
+    const candidate = pathHash ?? firstString(query.hash);
+    if (!candidate || !MD5_PATTERN.test(candidate)) {
+      throw new HTTPError({ status: 400, message: "Invalid MD5 hash" });
+    }
+    md5 = candidate;
+  } else {
+    const email = firstString(query.email);
+    if (!email) {
+      throw new HTTPError({ status: 400, message: "Missing email, hash parameter, or path hash" });
+    }
+    md5 = createHash("md5").update(email.trim().toLowerCase()).digest("hex");
   }
 
   // Forward all query params except email/hash
@@ -36,47 +49,30 @@ export default defineHandler(async (event) => {
   const gravatarUrl = `${GRAVATAR_BASE}/${md5}${search ? `?${search}` : ""}`;
   const cacheKey = `gravatar:${md5}${search ? `:${hash(search)}` : ""}`;
 
-  const storage = useStorage("cache");
-  const etag = `"${cacheKey}"`;
-  const cached = await storage.getItemRaw<Uint8Array>(cacheKey);
+  return serveCached(event, {
+    key: cacheKey,
+    ttl: GRAVATAR_TTL,
+    contentType: "image/png",
+    cacheControl: CACHE_LONG,
+    maxBytes: MAX_CACHE_ENTRY_BYTES,
+    produce: async () => {
+      await rateLimit(event, {
+        limit: GRAVATAR_RATE_LIMIT,
+        window: RATE_WINDOW,
+        scope: "gravatar",
+      });
 
-  if (cached) {
-    if (event.req.headers.get("if-none-match") === etag) {
-      event.res.status = 304;
-      return null;
-    }
-    const cachedMeta = await storage.getMeta(cacheKey);
-    const contentType =
-      typeof cachedMeta?.contentType === "string" ? cachedMeta.contentType : "image/png";
-    event.res.headers.set("Content-Type", contentType);
-    event.res.headers.set("ETag", etag);
-    event.res.headers.set("X-Cache", "HIT");
-    event.res.headers.set("Cache-Control", CACHE_LONG);
-    return cached;
-  }
-
-  const response = await fetch(gravatarUrl);
-
-  if (!response.ok) {
-    throw new HTTPError({
-      status: response.status,
-      message: "Failed to fetch gravatar",
-    });
-  }
-
-  const data = await response.bytes();
-  const contentType = response.headers.get("content-type") || "image/png";
-  event.res.headers.set("Content-Type", contentType);
-  event.res.headers.set("ETag", etag);
-  event.res.headers.set("X-Cache", "MISS");
-  event.res.headers.set("Cache-Control", CACHE_LONG);
-
-  event.waitUntil(
-    Promise.all([
-      storage.setItemRaw(cacheKey, data, { ttl: GRAVATAR_TTL }),
-      storage.setMeta(cacheKey, { contentType }, { ttl: GRAVATAR_TTL }),
-    ]),
-  );
-
-  return data;
+      const response = await safeFetch(gravatarUrl, { signal: AbortSignal.timeout(10000) });
+      if (!response || !response.ok) {
+        throw new HTTPError({
+          status: response?.status ?? 502,
+          message: "Failed to fetch gravatar",
+        });
+      }
+      return {
+        data: Buffer.from(await response.bytes()),
+        contentType: response.headers.get("content-type") || "image/png",
+      };
+    },
+  });
 });

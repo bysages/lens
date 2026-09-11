@@ -1,14 +1,16 @@
 import { ImageResponse } from "@vercel/og";
 import { defineHandler, getQuery } from "nitro/h3";
-import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 
+import { serveCached } from "../utils/cache";
 import {
   CACHE_IMMUTABLE,
+  MAX_CACHE_ENTRY_BYTES,
   OG_DEFAULT_HEIGHT,
   OG_DEFAULT_WIDTH,
   OG_IMAGE_TTL,
 } from "../utils/constants";
+import { clampInt, firstString, oneOf } from "../utils/params";
 
 export interface OGQuery {
   title?: string;
@@ -22,112 +24,91 @@ export interface OGQuery {
 export default defineHandler(async (event) => {
   const query = getQuery<OGQuery>(event);
 
-  const title = String(query.title || "Default Title").slice(0, 100);
-  const description = query.description ? String(query.description).slice(0, 200) : undefined;
-  const width = Math.max(200, Math.min(parseInt(query.width || String(OG_DEFAULT_WIDTH)), 2000));
-  const height = Math.max(200, Math.min(parseInt(query.height || String(OG_DEFAULT_HEIGHT)), 2000));
-  const fontSize = Math.max(12, Math.min(parseInt(query.fontSize || "48"), 120));
-  const theme: "light" | "dark" | "blue" | "green" =
-    query.theme === "light" ||
-    query.theme === "dark" ||
-    query.theme === "blue" ||
-    query.theme === "green"
-      ? query.theme
-      : "light";
+  const title = (firstString(query.title) || "Default Title").slice(0, 100);
+  const description = firstString(query.description)?.slice(0, 200);
+  const width = clampInt(query.width, 200, 2000, OG_DEFAULT_WIDTH);
+  const height = clampInt(query.height, 200, 2000, OG_DEFAULT_HEIGHT);
+  const fontSize = clampInt(query.fontSize, 12, 120, 48);
+  const theme = oneOf(query.theme, ["light", "dark", "blue", "green"] as const, "light")!;
 
-  const cacheKey = `og:${hash(query)}.png`;
-  const storage = useStorage("cache");
-  const etag = `"${cacheKey}"`;
-  const cached = await storage.getItemRaw<Uint8Array>(cacheKey);
+  const cacheKey = `og:${hash({ title, description, width, height, fontSize, theme })}.png`;
 
-  if (cached) {
-    if (event.req.headers.get("if-none-match") === etag) {
-      event.res.status = 304;
-      return null;
-    }
-    event.res.headers.set("ETag", etag);
-    event.res.headers.set("X-Cache", "HIT");
-    event.res.headers.set("Content-Type", "image/png");
-    event.res.headers.set("Cache-Control", CACHE_IMMUTABLE);
-    return Buffer.from(cached);
-  }
-
-  const themes = {
-    light: { background: "#ffffff", color: "#1a1a1a" },
-    dark: { background: "#1a1a1a", color: "#ffffff" },
-    blue: {
-      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
-      color: "#ffffff",
-    },
-    green: {
-      background: "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
-      color: "#1a1a1a",
-    },
-  };
-
-  const themeStyle = themes[theme];
-
-  const element = {
-    type: "div",
-    key: "og-container",
-    props: {
-      style: {
-        background: themeStyle.background,
-        width: "100%",
-        height: "100%",
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "Inter",
-        color: themeStyle.color,
-        padding: "40px",
-      },
-      children: [
-        {
-          type: "div",
-          key: "og-title",
-          props: {
-            style: {
-              fontSize,
-              fontWeight: "bold",
-              marginBottom: description ? "24px" : "0",
-              textAlign: "center",
-              maxWidth: "90%",
-            },
-            children: title,
-          },
+  return serveCached(event, {
+    key: cacheKey,
+    ttl: OG_IMAGE_TTL,
+    contentType: "image/png",
+    cacheControl: CACHE_IMMUTABLE,
+    maxBytes: MAX_CACHE_ENTRY_BYTES,
+    produce: async () => {
+      const themes = {
+        light: { background: "#ffffff", color: "#1a1a1a" },
+        dark: { background: "#1a1a1a", color: "#ffffff" },
+        blue: {
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+          color: "#ffffff",
         },
-        ...(description
-          ? [
-              {
-                type: "div",
-                key: "og-description",
-                props: {
-                  style: {
-                    fontSize: Math.floor(fontSize * 0.5),
-                    textAlign: "center",
-                    maxWidth: "80%",
-                    opacity: 0.8,
-                  },
-                  children: description,
+        green: {
+          background: "linear-gradient(135deg, #a8edea 0%, #fed6e3 100%)",
+          color: "#1a1a1a",
+        },
+      };
+
+      const themeStyle = themes[theme];
+
+      const element = {
+        type: "div",
+        key: "og-container",
+        props: {
+          style: {
+            background: themeStyle.background,
+            width: "100%",
+            height: "100%",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            justifyContent: "center",
+            fontFamily: "Inter",
+            color: themeStyle.color,
+            padding: "40px",
+          },
+          children: [
+            {
+              type: "div",
+              key: "og-title",
+              props: {
+                style: {
+                  fontSize,
+                  fontWeight: "bold",
+                  marginBottom: description ? "24px" : "0",
+                  textAlign: "center",
+                  maxWidth: "90%",
                 },
+                children: title,
               },
-            ]
-          : []),
-      ],
+            },
+            ...(description
+              ? [
+                  {
+                    type: "div",
+                    key: "og-description",
+                    props: {
+                      style: {
+                        fontSize: Math.floor(fontSize * 0.5),
+                        textAlign: "center",
+                        maxWidth: "80%",
+                        opacity: 0.8,
+                      },
+                      children: description,
+                    },
+                  },
+                ]
+              : []),
+          ],
+        },
+      };
+
+      const imageResponse = new ImageResponse(element, { width, height });
+      return { data: Buffer.from(await imageResponse.arrayBuffer()) };
     },
-  };
-
-  const imageResponse = new ImageResponse(element, { width, height });
-  const buffer = Buffer.from(await imageResponse.arrayBuffer());
-
-  await storage.setItemRaw(cacheKey, new Uint8Array(buffer), { ttl: OG_IMAGE_TTL });
-
-  event.res.headers.set("ETag", etag);
-  event.res.headers.set("X-Cache", "MISS");
-  event.res.headers.set("Content-Type", "image/png");
-  event.res.headers.set("Cache-Control", CACHE_IMMUTABLE);
-
-  return buffer;
+  });
 });

@@ -1,20 +1,22 @@
 import { defineHandler, HTTPError, getQuery } from "nitro/h3";
-import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 
+import { serveCached } from "../utils/cache";
 import {
   BROWSER_RATE_LIMIT,
-  BROWSER_RATE_WINDOW,
   BROWSER_TTL,
   CACHE_MEDIUM,
+  MAX_CACHE_ENTRY_BYTES,
+  RATE_WINDOW,
   SCREENSHOT_DEFAULT_HEIGHT,
   SCREENSHOT_DEFAULT_WIDTH,
   SCREENSHOT_MAX_HEIGHT,
   SCREENSHOT_MAX_WIDTH,
 } from "../utils/constants";
+import { boolParam, clampInt, firstString, oneOf } from "../utils/params";
 import { captureScreenshot } from "../utils/playwright";
 import { rateLimit } from "../utils/rate-limit";
-import { assertSafeUrl } from "../utils/ssrf";
+import { assertSafeUrl, normalizeInputUrl } from "../utils/ssrf";
 
 export interface ScreenshotQuery {
   url: string;
@@ -49,112 +51,89 @@ function parseClip(
 export default defineHandler(async (event) => {
   const query = getQuery<ScreenshotQuery>(event);
 
-  if (!query.url) {
+  const rawUrl = firstString(query.url);
+  if (!rawUrl) {
+    throw new HTTPError({ status: 400, message: "Missing url parameter" });
+  }
+  const url = normalizeInputUrl(rawUrl);
+  await assertSafeUrl(url);
+
+  const type = oneOf(query.type, ["png", "jpeg"] as const, "png")!;
+  // Playwright rejects quality for png screenshots — only parse it for jpeg
+  const quality = type === "jpeg" ? clampInt(query.quality, 1, 100) : undefined;
+  const width = clampInt(query.width, 100, SCREENSHOT_MAX_WIDTH, SCREENSHOT_DEFAULT_WIDTH);
+  const height = clampInt(query.height, 100, SCREENSHOT_MAX_HEIGHT, SCREENSHOT_DEFAULT_HEIGHT);
+  const fullPage = boolParam(query.fullPage) || undefined;
+  const mobile = boolParam(query.mobile);
+  const darkMode = boolParam(query.darkMode);
+  const waitUntil = oneOf(
+    query.waitUntil,
+    ["load", "domcontentloaded", "networkidle"] as const,
+    "domcontentloaded",
+  )!;
+  const delay = clampInt(query.delay, 0, 10000);
+  const timeout = clampInt(query.timeout, 1000, 30000);
+  const scale = oneOf(query.scale, ["css", "device"] as const);
+  const animations = oneOf(query.animations, ["disabled", "allow"] as const);
+  const caret = oneOf(query.caret, ["hide", "initial"] as const);
+  const style = firstString(query.style);
+  const clip = firstString(query.clip);
+
+  // Moli does not implement the CDP method behind this option — fail fast
+  // with a clear status instead of an opaque browser error
+  if (boolParam(query.omitBackground)) {
     throw new HTTPError({
       status: 400,
-      message: "Missing url parameter",
+      message: "omitBackground is not supported by the Moli browser kernel",
     });
   }
 
-  let url = query.url;
-  if (!url.startsWith("http")) {
-    url = `https://${url}`;
-  }
-
-  assertSafeUrl(url);
-
-  const width = query.width
-    ? Math.min(Math.max(parseInt(query.width), 100), SCREENSHOT_MAX_WIDTH)
-    : SCREENSHOT_DEFAULT_WIDTH;
-  const height = query.height
-    ? Math.min(Math.max(parseInt(query.height), 100), SCREENSHOT_MAX_HEIGHT)
-    : SCREENSHOT_DEFAULT_HEIGHT;
-  const type: "png" | "jpeg" = query.type === "jpeg" ? "jpeg" : "png";
-  const quality = query.quality ? Math.min(Math.max(parseInt(query.quality), 1), 100) : undefined;
-  const fullPage = query.fullPage === "true" ? true : undefined;
-  const omitBackground = query.omitBackground === "true" ? true : undefined;
-  const mobile = query.mobile === "true";
-  const darkMode = query.darkMode === "true";
-  const waitUntil = (query.waitUntil || "domcontentloaded") as
-    | "load"
-    | "domcontentloaded"
-    | "networkidle";
-  const delay = query.delay ? Math.min(Math.max(parseInt(query.delay), 0), 10000) : undefined;
-  const timeout = query.timeout
-    ? Math.min(Math.max(parseInt(query.timeout), 1000), 30000)
-    : undefined;
-
-  // Generate cache key using ohash
-  const cacheParams = {
+  const cacheKey = `screenshot:${hash({
     url,
     width,
     height,
     type,
     quality,
     fullPage,
-    clip: query.clip,
-    omitBackground,
-    scale: query.scale,
-    animations: query.animations,
-    caret: query.caret,
-    style: query.style,
+    clip,
+    scale,
+    animations,
+    caret,
+    style,
     timeout,
     mobile,
     darkMode,
     waitUntil,
     delay,
-  };
-  const cacheKey = `screenshot:${hash(cacheParams)}.${type}`;
-  const storage = useStorage("cache");
-  const etag = `"${cacheKey}"`;
-  const cached = await storage.getItemRaw<Uint8Array>(cacheKey);
+  })}.${type}`;
 
-  if (cached) {
-    if (event.req.headers.get("if-none-match") === etag) {
-      event.res.status = 304;
-      return null;
-    }
-    event.res.headers.set("ETag", etag);
-    event.res.headers.set("X-Cache", "HIT");
-    const contentType = type === "jpeg" ? "image/jpeg" : "image/png";
-    event.res.headers.set("Content-Type", contentType);
-    event.res.headers.set("Cache-Control", CACHE_MEDIUM);
-    return Buffer.from(cached);
-  }
-
-  await rateLimit(event, { limit: BROWSER_RATE_LIMIT, window: BROWSER_RATE_WINDOW });
-
-  // Capture screenshot
-  const result = await captureScreenshot({
-    url,
-    width,
-    height,
-    type,
-    quality,
-    fullPage,
-    clip: parseClip(query.clip),
-    omitBackground,
-    scale: query.scale as "css" | "device" | undefined,
-    animations: query.animations as "disabled" | "allow" | undefined,
-    caret: query.caret as "hide" | "initial" | undefined,
-    style: query.style,
-    timeout,
-    mobile,
-    darkMode,
-    waitUntil,
-    delay,
+  return serveCached(event, {
+    key: cacheKey,
+    ttl: BROWSER_TTL,
+    contentType: type === "jpeg" ? "image/jpeg" : "image/png",
+    cacheControl: CACHE_MEDIUM,
+    maxBytes: MAX_CACHE_ENTRY_BYTES,
+    produce: async () => {
+      await rateLimit(event, { limit: BROWSER_RATE_LIMIT, window: RATE_WINDOW, scope: "browser" });
+      const result = await captureScreenshot({
+        url,
+        width,
+        height,
+        type,
+        quality,
+        fullPage,
+        clip: parseClip(clip),
+        scale,
+        animations,
+        caret,
+        style,
+        timeout,
+        mobile,
+        darkMode,
+        waitUntil,
+        delay,
+      });
+      return { data: result.buffer };
+    },
   });
-
-  event.waitUntil(
-    storage.setItemRaw(cacheKey, new Uint8Array(result.buffer), { ttl: BROWSER_TTL }),
-  );
-
-  // CORS is handled by global routeRules
-  const contentType = type === "jpeg" ? "image/jpeg" : "image/png";
-  event.res.headers.set("ETag", etag);
-  event.res.headers.set("X-Cache", "MISS");
-  event.res.headers.set("Content-Type", contentType);
-  event.res.headers.set("Cache-Control", CACHE_MEDIUM);
-
-  return result.buffer;
 });

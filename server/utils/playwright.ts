@@ -2,7 +2,7 @@ import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
 import { type Browser, type Page } from "playwright";
 
-import { BROWSER_MAX_CONCURRENCY } from "./constants";
+import { BROWSER_MAX_CONCURRENCY, BROWSER_TIMEOUT } from "./constants";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -26,7 +26,6 @@ export interface ScreenshotParams {
   fullPage?: boolean;
   quality?: number;
   clip?: { x: number; y: number; width: number; height: number };
-  omitBackground?: boolean;
   scale?: "css" | "device";
   animations?: "disabled" | "allow";
   caret?: "hide" | "initial";
@@ -43,7 +42,12 @@ export interface ScreenshotResult {
 
 // The browser is a remote Moli instance serving CDP; loopback matches the
 // in-container deployment where the entrypoint supervises `moli serve`.
-const CDP_ENDPOINT = process.env.BROWSER_CDP_ENDPOINT || "http://127.0.0.1:9222";
+export const CDP_ENDPOINT = process.env.BROWSER_CDP_ENDPOINT || "http://127.0.0.1:9222";
+
+// UA overrides are opt-in: the engine's own user agent stays consistent with
+// its JS/TLS fingerprint, while hardcoded strings age into mismatched ones.
+const DESKTOP_USER_AGENT = process.env.BROWSER_USER_AGENT;
+const MOBILE_USER_AGENT = process.env.BROWSER_USER_AGENT_MOBILE;
 
 let browser: Browser | null = null;
 let browserInitializing: Promise<Browser> | null = null;
@@ -100,20 +104,16 @@ function releaseSlot(): void {
 // ── Page Helpers ───────────────────────────────────────
 
 /**
- * Prepare a page for rendering: bound timeouts and freeze CSS animations.
- * Resource blocking via route interception is deliberately avoided — it
- * stalls the browser on resource-heavy pages; web fonts also improve
- * screenshot typography.
+ * Prepare a page for rendering: bound timeouts. Resource blocking via route
+ * interception is deliberately avoided — it stalls the browser on
+ * resource-heavy pages; web fonts also improve screenshot typography.
+ * Animation freezing happens at capture time via the screenshot
+ * `animations` option — document-level styles injected before navigation
+ * would be wiped by the goto.
  */
-async function optimizePage(page: Page): Promise<void> {
-  page.setDefaultTimeout(10000);
-  page.setDefaultNavigationTimeout(10000);
-
-  await page.evaluate(() => {
-    const style = document.createElement("style");
-    style.textContent = "*,::after,::before{transition:none!important;animation:none!important}";
-    document.head.appendChild(style);
-  });
+function optimizePage(page: Page): void {
+  page.setDefaultTimeout(BROWSER_TIMEOUT);
+  page.setDefaultNavigationTimeout(BROWSER_TIMEOUT);
 }
 
 /**
@@ -125,7 +125,7 @@ export async function withPage<T>(fn: (page: Page) => Promise<T>): Promise<T> {
   try {
     const b = await getBrowser();
     const page = await b.newPage();
-    await optimizePage(page);
+    optimizePage(page);
 
     try {
       return await fn(page);
@@ -153,15 +153,15 @@ export async function withContext<T>(
     const context = await b.newContext({
       viewport,
       colorScheme: darkMode ? "dark" : "light",
-      userAgent: mobile
-        ? "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1"
-        : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      ...((mobile ? MOBILE_USER_AGENT : DESKTOP_USER_AGENT) && {
+        userAgent: mobile ? MOBILE_USER_AGENT : DESKTOP_USER_AGENT,
+      }),
       isMobile: mobile,
       hasTouch: mobile,
     });
 
     const page = await context.newPage();
-    await optimizePage(page);
+    optimizePage(page);
 
     try {
       return await fn(page);
@@ -186,7 +186,6 @@ export async function captureScreenshot(params: ScreenshotParams): Promise<Scree
     fullPage,
     quality,
     clip,
-    omitBackground,
     scale,
     animations,
     caret,
@@ -203,7 +202,7 @@ export async function captureScreenshot(params: ScreenshotParams): Promise<Scree
     async (page) => {
       await page.goto(url, {
         waitUntil,
-        timeout: timeout ?? 10000,
+        timeout: timeout ?? BROWSER_TIMEOUT,
       });
 
       if (delay) {
@@ -215,7 +214,6 @@ export async function captureScreenshot(params: ScreenshotParams): Promise<Scree
         ...(fullPage !== undefined && { fullPage }),
         ...(quality !== undefined && { quality }),
         ...(clip && { clip }),
-        ...(omitBackground !== undefined && { omitBackground }),
         ...(scale && { scale }),
         ...(animations && { animations }),
         ...(caret && { caret }),
@@ -265,7 +263,7 @@ export async function extractContent(params: ExtractParams): Promise<ExtractResu
   return withPage(async (page) => {
     await page.goto(url, {
       waitUntil,
-      timeout: timeout ?? 10000,
+      timeout: timeout ?? BROWSER_TIMEOUT,
     });
 
     if (delay) {

@@ -1,8 +1,8 @@
 import { defineHandler, HTTPError, getRouterParam } from "nitro/h3";
-import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 
-import { CACHE_IMMUTABLE, FONT_FILE_TTL } from "../../utils/constants";
+import { serveCached } from "../../utils/cache";
+import { CACHE_IMMUTABLE, FONT_FILE_TTL, MAX_CACHE_ENTRY_BYTES } from "../../utils/constants";
 
 export const allowedProviders = ["google", "bunny", "fontshare", "fontsource"];
 
@@ -89,47 +89,32 @@ export default defineHandler(async (event) => {
   // Generate cache key using ohash
   const extension = getFontExtension(fontpath);
   const cacheKey = `fonts:${hash({ provider, path: fontpath })}.${extension}`;
-  const storage = useStorage("cache");
-  const etag = `"${cacheKey}"`;
-  const cached = await storage.getItemRaw<Uint8Array>(cacheKey);
 
-  if (cached) {
-    if (event.req.headers.get("if-none-match") === etag) {
-      event.res.status = 304;
-      return null;
-    }
-    event.res.headers.set("ETag", etag);
-    event.res.headers.set("X-Cache", "HIT");
-    const contentType = getFontContentType(fontpath);
-    event.res.headers.set("Content-Type", contentType);
-    event.res.headers.set("Cache-Control", CACHE_IMMUTABLE);
-    return Buffer.from(cached);
-  }
+  return serveCached(event, {
+    key: cacheKey,
+    ttl: FONT_FILE_TTL,
+    contentType: getFontContentType(fontpath),
+    cacheControl: CACHE_IMMUTABLE,
+    maxBytes: MAX_CACHE_ENTRY_BYTES,
+    produce: async () => {
+      const response = await fetch(fontUrl, {
+        headers: {
+          Accept: "font/woff2,font/woff,font/ttf,*/*",
+        },
+        signal: AbortSignal.timeout(15000),
+      });
 
-  const response = await fetch(fontUrl, {
-    headers: {
-      Accept: "font/woff2,font/woff,font/ttf,*/*",
+      if (!response.ok) {
+        throw new HTTPError({
+          status: response.status,
+          message: "Font file not found",
+        });
+      }
+
+      return {
+        data: Buffer.from(await response.arrayBuffer()),
+        contentType: response.headers.get("content-type") || getFontContentType(fontpath),
+      };
     },
   });
-
-  if (!response.ok) {
-    throw new HTTPError({
-      status: response.status,
-      message: "Font file not found",
-    });
-  }
-
-  const data = Buffer.from(await response.arrayBuffer());
-
-  // Non-blocking cache write (30 days TTL)
-  event.waitUntil(storage.setItemRaw(cacheKey, new Uint8Array(data), { ttl: FONT_FILE_TTL }));
-
-  // CORS is handled by global routeRules
-  const contentType = response.headers.get("content-type") || getFontContentType(fontpath);
-  event.res.headers.set("ETag", etag);
-  event.res.headers.set("X-Cache", "MISS");
-  event.res.headers.set("Content-Type", contentType);
-  event.res.headers.set("Cache-Control", CACHE_IMMUTABLE);
-
-  return data;
 });

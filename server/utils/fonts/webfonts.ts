@@ -1,4 +1,5 @@
 import { useStorage } from "nitro/storage";
+import { hash } from "ohash";
 
 import { FONT_META_TTL } from "../constants";
 import { getBunnyWebFonts } from "./providers/bunny";
@@ -58,7 +59,9 @@ export async function getWebfontsList(
   }
 
   const storage = useStorage("cache");
-  const cacheKey = `webfonts:list:${provider}:${filters.family || "all"}`;
+  // The key must cover every parameter that changes the cached result —
+  // the filters and sort are applied BEFORE the result is stored here.
+  const cacheKey = `webfonts:list:${provider}:${hash({ ...filters, sort })}`;
   const cached = await storage.getItem<{ kind: string; items: WebFontItem[] }>(cacheKey);
 
   if (cached) {

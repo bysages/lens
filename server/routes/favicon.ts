@@ -1,31 +1,78 @@
 import * as cheerio from "cheerio";
 import { defineHandler, HTTPError, getQuery } from "nitro/h3";
-import { useStorage } from "nitro/storage";
 import { hash } from "ohash";
 import sharp from "sharp";
 
+import { serveCached } from "../utils/cache";
 import {
   CACHE_LONG,
   FAVICON_MAX_SIZE,
   FAVICON_MIN_SIZE,
   FAVICON_DEFAULT_SIZE,
+  FAVICON_RATE_LIMIT,
   FAVICON_TTL,
+  MAX_CACHE_ENTRY_BYTES,
+  RATE_WINDOW,
 } from "../utils/constants";
-import { assertSafeUrl } from "../utils/ssrf";
+import { clampInt, firstString } from "../utils/params";
+import { rateLimit } from "../utils/rate-limit";
+import { assertSafeUrl, extractHostname, safeFetch } from "../utils/ssrf";
 
 export interface FaviconQuery {
   url: string;
   size?: string;
 }
 
-export interface ManifestIcon {
+interface ManifestIcon {
   src: string;
   sizes: string;
   type?: string;
   purpose?: string;
 }
 
-export async function tryManifestIcons(domain: string): Promise<Buffer | null> {
+// Cap on remote icon downloads: manifests and HTML tags can point anywhere,
+// including multi-hundred-megabyte payloads
+const MAX_ICON_BYTES = 5 * 1024 * 1024;
+
+const FAVICON_UA = { "User-Agent": "Mozilla/5.0 Favicon Extractor" };
+
+/** Read a response body enforcing the icon size cap. */
+async function readWithinLimit(response: Response): Promise<Buffer | null> {
+  const declared = Number.parseInt(response.headers.get("content-length") || "", 10);
+  if (Number.isFinite(declared) && declared > MAX_ICON_BYTES) return null;
+  const data = Buffer.from(await response.arrayBuffer());
+  return data.byteLength <= MAX_ICON_BYTES ? data : null;
+}
+
+/** Download an icon through the SSRF-checked fetch wrapper. */
+async function downloadIcon(
+  url: string,
+  timeoutMs: number,
+  accept?: string,
+): Promise<Buffer | null> {
+  const response = await safeFetch(url, {
+    headers: { ...FAVICON_UA, ...(accept && { Accept: accept }) },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!response?.ok) return null;
+  return readWithinLimit(response);
+}
+
+/** Probe a candidate icon path; returns the bytes when the response is an image. */
+async function probeIconPath(
+  domain: string,
+  path: string,
+  timeoutMs: number,
+): Promise<Buffer | null> {
+  const response = await safeFetch(`https://${domain}${path}`, {
+    headers: { ...FAVICON_UA, Accept: "image/*" },
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  if (!response?.ok || !response.headers.get("content-type")?.startsWith("image/")) return null;
+  return readWithinLimit(response);
+}
+
+async function tryManifestIcons(domain: string): Promise<Buffer | null> {
   const manifestPaths = [
     "/manifest.webmanifest",
     "/manifest.json",
@@ -38,22 +85,19 @@ export async function tryManifestIcons(domain: string): Promise<Buffer | null> {
   ];
 
   for (const path of manifestPaths) {
-    const response = await fetch(`https://${domain}${path}`, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 Favicon Extractor",
-        Accept: "application/json,application/manifest+json",
-      },
+    const response = await safeFetch(`https://${domain}${path}`, {
+      headers: { ...FAVICON_UA, Accept: "application/json,application/manifest+json" },
       signal: AbortSignal.timeout(5000),
-    }).catch(() => null);
+    });
 
     if (!response?.ok) continue;
 
-    const manifest = await response.json().catch(() => null);
+    const manifest = (await response.json().catch(() => null)) as { icons?: ManifestIcon[] } | null;
     if (!manifest?.icons?.length) continue;
 
-    const sortedIcons = (manifest.icons as ManifestIcon[])
-      .filter((icon: ManifestIcon) => icon.sizes && icon.src)
-      .sort((a: ManifestIcon, b: ManifestIcon) => {
+    const sortedIcons = manifest.icons
+      .filter((icon) => icon.sizes && icon.src)
+      .sort((a, b) => {
         const aIsMaskable = a.purpose === "maskable" || a.sizes === "512x512";
         const bIsMaskable = b.purpose === "maskable" || b.sizes === "512x512";
 
@@ -68,21 +112,19 @@ export async function tryManifestIcons(domain: string): Promise<Buffer | null> {
       });
 
     for (const icon of sortedIcons) {
-      const iconUrl = icon.src.startsWith("http")
+      const iconUrl = /^https?:\/\//i.test(icon.src)
         ? icon.src
         : `https://${domain}${icon.src.startsWith("/") ? "" : "/"}${icon.src}`;
 
-      const iconResponse = await fetch(iconUrl).catch(() => null);
-      if (iconResponse?.ok) {
-        return Buffer.from(await iconResponse.arrayBuffer());
-      }
+      const data = await downloadIcon(iconUrl, 5000, "image/*");
+      if (data) return data;
     }
   }
 
   return null;
 }
 
-export async function tryAppleTouchIcons(domain: string): Promise<Buffer | null> {
+async function tryAppleTouchIcons(domain: string): Promise<Buffer | null> {
   const applePaths = [
     "/apple-touch-icon.png",
     "/apple-touch-icon-180x180.png",
@@ -106,27 +148,18 @@ export async function tryAppleTouchIcons(domain: string): Promise<Buffer | null>
   ];
 
   for (const path of applePaths) {
-    const response = await fetch(`https://${domain}${path}`, {
-      headers: { Accept: "image/*" },
-      signal: AbortSignal.timeout(3000),
-    }).catch(() => null);
-
-    if (response?.ok && response.headers.get("content-type")?.startsWith("image/")) {
-      return Buffer.from(await response.arrayBuffer());
-    }
+    const data = await probeIconPath(domain, path, 3000);
+    if (data) return data;
   }
 
   return null;
 }
 
-export async function tryHTMLFaviconTags(domain: string): Promise<Buffer | null> {
-  const response = await fetch(`https://${domain}`, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 Favicon Extractor",
-      Accept: "text/html,application/xhtml+xml",
-    },
+async function tryHTMLFaviconTags(domain: string): Promise<Buffer | null> {
+  const response = await safeFetch(`https://${domain}`, {
+    headers: { ...FAVICON_UA, Accept: "text/html,application/xhtml+xml" },
     signal: AbortSignal.timeout(8000),
-  }).catch(() => null);
+  });
 
   if (!response?.ok) return null;
 
@@ -172,21 +205,21 @@ export async function tryHTMLFaviconTags(domain: string): Promise<Buffer | null>
     }
 
     if (href) {
-      const faviconUrl = href.startsWith("http")
+      // Icon URLs come from the target site's own markup — they may point
+      // anywhere, so they go through the same SSRF-checked download
+      const faviconUrl = /^https?:\/\//i.test(href)
         ? href
         : `https://${domain}${href.startsWith("/") ? "" : "/"}${href}`;
 
-      const faviconResponse = await fetch(faviconUrl).catch(() => null);
-      if (faviconResponse?.ok) {
-        return Buffer.from(await faviconResponse.arrayBuffer());
-      }
+      const data = await downloadIcon(faviconUrl, 5000, "image/*");
+      if (data) return data;
     }
   }
 
   return null;
 }
 
-export async function tryDirectPaths(domain: string): Promise<Buffer | null> {
+async function tryDirectPaths(domain: string): Promise<Buffer | null> {
   const directPaths = [
     "/favicon.ico",
     "/favicon.png",
@@ -231,20 +264,14 @@ export async function tryDirectPaths(domain: string): Promise<Buffer | null> {
   ];
 
   for (const path of directPaths) {
-    const response = await fetch(`https://${domain}${path}`, {
-      headers: { Accept: "image/*" },
-      signal: AbortSignal.timeout(2000),
-    }).catch(() => null);
-
-    if (response?.ok && response.headers.get("content-type")?.includes("image")) {
-      return Buffer.from(await response.arrayBuffer());
-    }
+    const data = await probeIconPath(domain, path, 2000);
+    if (data) return data;
   }
 
   return null;
 }
 
-export async function optimizeFavicon(faviconBuffer: Buffer, targetSize: number): Promise<Buffer> {
+async function optimizeFavicon(faviconBuffer: Buffer, targetSize: number): Promise<Buffer> {
   return await sharp(faviconBuffer, {
     sequentialRead: true,
     limitInputPixels: 16777216,
@@ -265,7 +292,7 @@ export async function optimizeFavicon(faviconBuffer: Buffer, targetSize: number)
     .toBuffer();
 }
 
-export async function generateFallbackFavicon(domain: string, size: number): Promise<Buffer> {
+async function generateFallbackFavicon(domain: string, size: number): Promise<Buffer> {
   const firstLetter = domain.charAt(0).toUpperCase();
 
   const svg = `
@@ -294,8 +321,8 @@ export async function generateFallbackFavicon(domain: string, size: number): Pro
   }
 }
 
-export async function getFavicon(domain: string, size: number = 32): Promise<Buffer> {
-  const hostname = domain.startsWith("http") ? new URL(domain).hostname : domain;
+async function getFavicon(domain: string, size: number = 32): Promise<Buffer> {
+  const hostname = extractHostname(domain) ?? domain;
 
   // Execute all extraction methods in parallel
   const results = await Promise.allSettled([
@@ -319,49 +346,26 @@ export async function getFavicon(domain: string, size: number = 32): Promise<Buf
 export default defineHandler(async (event) => {
   const query = getQuery<FaviconQuery>(event);
 
-  if (!query.url) {
-    throw new HTTPError({
-      status: 400,
-      message: "Missing url parameter",
-    });
+  const rawUrl = firstString(query.url);
+  if (!rawUrl) {
+    throw new HTTPError({ status: 400, message: "Missing url parameter" });
   }
 
-  const size = Math.min(
-    Math.max(parseInt(query.size || String(FAVICON_DEFAULT_SIZE)), FAVICON_MIN_SIZE),
-    FAVICON_MAX_SIZE,
-  );
-  const url = String(query.url);
+  const size = clampInt(query.size, FAVICON_MIN_SIZE, FAVICON_MAX_SIZE, FAVICON_DEFAULT_SIZE)!;
+  const hostname = extractHostname(rawUrl) ?? rawUrl;
+  await assertSafeUrl(`https://${hostname}`);
 
-  const hostname = url.startsWith("http") ? new URL(url).hostname : url;
-  assertSafeUrl(`https://${hostname}`);
+  const cacheKey = `favicon:${hash({ url: rawUrl, size })}.png`;
 
-  const cacheKey = `favicon:${hash({ url, size })}.png`;
-  const storage = useStorage("cache");
-  const etag = `"${cacheKey}"`;
-  const cached = await storage.getItemRaw<Uint8Array>(cacheKey);
-
-  if (cached) {
-    if (event.req.headers.get("if-none-match") === etag) {
-      event.res.status = 304;
-      return null;
-    }
-    event.res.headers.set("ETag", etag);
-    event.res.headers.set("X-Cache", "HIT");
-    event.res.headers.set("Content-Type", "image/png");
-    event.res.headers.set("Cache-Control", CACHE_LONG);
-    return Buffer.from(cached);
-  }
-
-  // CORS is handled by global routeRules
-  const favicon = await getFavicon(url, size);
-
-  // Non-blocking cache write (30 days TTL)
-  event.waitUntil(storage.setItemRaw(cacheKey, new Uint8Array(favicon), { ttl: FAVICON_TTL }));
-
-  event.res.headers.set("ETag", etag);
-  event.res.headers.set("X-Cache", "MISS");
-  event.res.headers.set("Content-Type", "image/png");
-  event.res.headers.set("Cache-Control", CACHE_LONG);
-
-  return favicon;
+  return serveCached(event, {
+    key: cacheKey,
+    ttl: FAVICON_TTL,
+    contentType: "image/png",
+    cacheControl: CACHE_LONG,
+    maxBytes: MAX_CACHE_ENTRY_BYTES,
+    produce: async () => {
+      await rateLimit(event, { limit: FAVICON_RATE_LIMIT, window: RATE_WINDOW, scope: "favicon" });
+      return { data: await getFavicon(rawUrl, size) };
+    },
+  });
 });
