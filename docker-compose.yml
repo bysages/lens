@@ -13,14 +13,23 @@ services:
       PORT: ${PORT:-3000}
       # Image Proxy Security
       ALLOWED_DOMAINS: ${ALLOWED_DOMAINS:-}
+      # Set TRUST_PROXY=1 only when requests arrive through a trusted reverse proxy
+      TRUST_PROXY: ${TRUST_PROXY:-}
       # Caching: LRU-evicted and shared across cluster workers
-      REDIS_URL: redis://127.0.0.1:6379
+      REDIS_URL: ${REDIS_URL:-redis://127.0.0.1:6379}
     depends_on:
       redis:
         condition: service_healthy
     healthcheck:
       test:
-        ["CMD", "curl", "--no-verbose", "--tries=1", "--spider", "http://localhost:${PORT:-3000}"]
+        [
+          "CMD",
+          "curl",
+          "--no-verbose",
+          "--tries=1",
+          "--spider",
+          "http://localhost:${PORT:-3000}/healthz",
+        ]
       interval: 30s
       timeout: 10s
       retries: 3

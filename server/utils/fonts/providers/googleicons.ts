@@ -1,4 +1,5 @@
 // Google Icons provider for WebFonts API
+import { HTTPError } from "nitro/h3";
 import { useStorage } from "nitro/storage";
 
 import { FONT_META_TTL } from "../../constants";
@@ -20,7 +21,12 @@ export async function getGoogleIconsMeta(): Promise<GoogleiconsFontMeta> {
   }
 
   // Fetch from Google Fonts API
-  const response = await fetch(`${API_BASE}/metadata/icons?key=material_symbols&incomplete=true`);
+  const response = await fetch(`${API_BASE}/metadata/icons?key=material_symbols&incomplete=true`, {
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) {
+    throw new HTTPError({ status: 502, message: `Google Icons API returned ${response.status}` });
+  }
   const text = await response.text();
 
   // Remove first line (XSSI protection) and parse JSON

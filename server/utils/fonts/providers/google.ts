@@ -83,7 +83,15 @@ export async function getGoogleFontsMeta(): Promise<GoogleFontMeta[]> {
   }
 
   // Fetch from Google Fonts API
-  const response = await fetch(`${API_BASE}/metadata/fonts`);
+  const response = await fetch(`${API_BASE}/metadata/fonts`, {
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) {
+    throw new HTTPError({
+      status: 502,
+      message: `Google Fonts API returned ${response.status}`,
+    });
+  }
   const text = await response.text();
 
   // Extract JSON from JSONP response

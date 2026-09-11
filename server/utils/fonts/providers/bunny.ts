@@ -2,7 +2,7 @@ import { useStorage } from "nitro/storage";
 
 import { FONT_META_TTL } from "../../constants";
 // Bunny Fonts provider for WebFonts API
-import { sortVariants } from "../helpers";
+import { fetchJson, sortVariants } from "../helpers";
 import type { WebFontItem } from "../types";
 
 export interface BunnyFontMeta {
@@ -28,8 +28,7 @@ export async function getBunnyFontsMeta(): Promise<Record<string, BunnyFontMeta>
   }
 
   // Fetch from Bunny Fonts API
-  const response = await fetch(`${API_BASE}/list`);
-  const data = (await response.json()) as Record<string, BunnyFontMeta>;
+  const data = await fetchJson<Record<string, BunnyFontMeta>>(`${API_BASE}/list`);
 
   // Cache for 1 hour
   await storage.setItem(cacheKey, data, { ttl: FONT_META_TTL });

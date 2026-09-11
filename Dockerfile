@@ -59,12 +59,19 @@ COPY --from=build /app/.output /app
 COPY docker/entrypoint.sh /usr/local/bin/lens-entrypoint
 RUN chmod 0755 /usr/local/bin/lens-entrypoint
 
+# Run as an unprivileged user: the app renders untrusted pages and images
+RUN groupadd -r lens && useradd -r -g lens lens \
+    && chown -R lens:lens /app
+USER lens
+
 # Set env vars
 ENV NODE_ENV=production
 ENV PORT=3000
 # Moli serves unauthenticated CDP on loopback only; never expose 9222
 ENV BROWSER_CDP_ENDPOINT=http://127.0.0.1:9222
-ENV MOLI_FLAGS="--layout --resource --block-private-networks"
+# --block-private-networks (the browser-level SSRF guard) is hardcoded in
+# the entrypoint and cannot be dropped via MOLI_FLAGS
+ENV MOLI_FLAGS="--layout --resource"
 
 # run the app
 ENTRYPOINT ["/usr/local/bin/lens-entrypoint"]

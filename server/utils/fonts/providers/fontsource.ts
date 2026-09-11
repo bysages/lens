@@ -2,7 +2,7 @@ import { useStorage } from "nitro/storage";
 
 import { FONT_META_TTL } from "../../constants";
 // Fontsource provider for WebFonts API
-import { sortVariants } from "../helpers";
+import { fetchJson, sortVariants } from "../helpers";
 import type { WebFontItem } from "../types";
 
 export interface FontsourceFontMeta {
@@ -32,8 +32,7 @@ export async function getFontsourceMeta(): Promise<FontsourceFontMeta[]> {
   }
 
   // Fetch from Fontsource API
-  const response = await fetch(`${API_BASE}/fonts`);
-  const data = (await response.json()) as FontsourceFontMeta[];
+  const data = await fetchJson<FontsourceFontMeta[]>(`${API_BASE}/fonts`);
 
   // Cache for 1 hour
   await storage.setItem(cacheKey, data, { ttl: FONT_META_TTL });

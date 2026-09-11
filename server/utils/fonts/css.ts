@@ -99,6 +99,25 @@ export async function getFontFileUrl(
   }
 }
 
+/** Font-display values accepted by the CSS spec; anything else would be an injection vector. */
+const FONT_DISPLAY_VALUES = new Set(["auto", "block", "swap", "fallback", "optional"]);
+
+/**
+ * Strip characters that would terminate the font-family string or break out
+ * of the @font-face rule — family names flow in from query parameters.
+ */
+function sanitizeCssFamily(value: string): string {
+  return value.replace(/['"\\{};]/g, "").trim();
+}
+
+function safeDisplay(value: string): string {
+  return FONT_DISPLAY_VALUES.has(value) ? value : "swap";
+}
+
+function safeWeight(value: FontWeight): FontWeight {
+  return /^\d{1,3}$/.test(String(value)) ? value : "400";
+}
+
 /**
  * Generate @font-face CSS for a single font file
  * Follows CSS Fonts Module Level 4 specification
@@ -153,10 +172,10 @@ export function generateFontFaceCSS(
   }
 
   return `@font-face {
-  font-family: '${fontFamily}';
-  font-style: ${fontStyle};
-  font-weight: ${fontWeight};
-  font-display: ${display};
+  font-family: '${sanitizeCssFamily(fontFamily)}';
+  font-style: ${fontStyle === "italic" ? "italic" : "normal"};
+  font-weight: ${safeWeight(fontWeight)};
+  font-display: ${safeDisplay(display)};
   src: url('${fontSrcUrl}') format('${format}');
 }
 
@@ -187,11 +206,11 @@ export async function fetchGoogleFontsCSS(options: {
   // v1 API: /css (supports pipe separator for multiple fonts)
   // v2 API: /css2 (supports repeated family parameter)
   const apiVersion = useV2API ? "css2" : "css";
-  let googleApiUrl = `https://fonts.googleapis.com/${apiVersion}?family=${family}&display=${display}`;
+  let googleApiUrl = `https://fonts.googleapis.com/${apiVersion}?family=${encodeURIComponent(family)}&display=${encodeURIComponent(safeDisplay(display))}`;
 
   // Add subset parameter if not default latin
   if (subset && subset !== "latin") {
-    googleApiUrl += `&subset=${subset}`;
+    googleApiUrl += `&subset=${encodeURIComponent(subset)}`;
   }
 
   // Prepare headers - pass through User-Agent to get appropriate format

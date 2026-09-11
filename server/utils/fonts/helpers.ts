@@ -1,3 +1,23 @@
+import { HTTPError } from "nitro/h3";
+
+const UPSTREAM_TIMEOUT_MS = 15000;
+
+/**
+ * Fetch JSON from a font provider's metadata endpoint with a status check
+ * and timeout — without them an outage surfaces as a cryptic JSON-parse
+ * error per request.
+ */
+export async function fetchJson<T>(url: string): Promise<T> {
+  const response = await fetch(url, {
+    headers: { Accept: "application/json" },
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  });
+  if (!response.ok) {
+    throw new HTTPError({ status: 502, message: `Font provider returned ${response.status}` });
+  }
+  return (await response.json()) as T;
+}
+
 /**
  * Google Fonts variant sorting order
  * Used for consistent API compatibility across providers
