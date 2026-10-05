@@ -30,26 +30,30 @@
   },
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "build": "vite build",
-    "preview": "vite preview",
+    "dev": "vp dev",
+    "build": "vp build",
+    "preview": "vp preview",
     "check": "vp check --fix",
-    "postinstall": "nitro prepare && vp config"
+    "postinstall": "pnpm build && vp config && basis git setup"
+  },
+  "dependencies": {
+    "ohash": "^2.0.12"
   },
   "devDependencies": {
+    "@funish/basis": "0.3.0",
     "@mozilla/readability": "0.6.0",
-    "@types/node": "25.6.0",
+    "@types/node": "26.6.4",
     "@types/turndown": "5.0.6",
-    "@vercel/og": "0.11.1",
+    "@vercel/og": "1.0.3",
     "cheerio": "1.2.0",
-    "ioredis": "5.10.1",
+    "ioredis": "6.0.0",
     "ipdo": "0.0.6",
-    "ipx": "4.0.0-alpha.1",
-    "linkedom": "0.18.12",
-    "nitro": "3.0.260311-beta",
-    "playwright": "1.59.1",
-    "sharp": "0.34.5",
+    "ipx": "4.0.0-beta.1",
+    "linkedom": "0.18.13",
+    "nitro": "3.0.260903-beta",
+    "playwright": "1.63.0",
+    "sharp": "0.35.5",
     "turndown": "7.2.4",
-    "vite-plus": "0.1.16"
+    "vite-plus": "1.0.0"
   }
 }

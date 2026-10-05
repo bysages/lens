@@ -24,9 +24,9 @@ WORKDIR /app
 
 # Moli headless browser (https://github.com/lexmount/moli), pinned release
 ARG TARGETARCH
-ARG MOLI_VERSION=1.0.1
-ARG MOLI_AMD64_SHA256=1f721d886b36e7a45afd75ce08d611d1582c8ab5a3c4b9275849825fc53bbb7d
-ARG MOLI_ARM64_SHA256=8a054e25f32f05ca7585e50c067e4bd359ca78cac95db660214b5056dc161212
+ARG MOLI_VERSION=1.1.13
+ARG MOLI_AMD64_SHA256=f1af381b570511d96d232872461a11a8ffd246762492f5b63f6495f49cfd24c6
+ARG MOLI_ARM64_SHA256=9dd3dc3474e381b9434cc59e2c7f712ff25a25c02477f10fc3148afe6f616f3e
 
 # ca-certificates for HTTPS, libcurl4 for Moli's network transport,
 # libfontconfig1 required by Moli's text layout, base fonts so text does not

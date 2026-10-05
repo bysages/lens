@@ -3,13 +3,22 @@
 
 import type { FontStyle, FontWeight, ParsedFont } from "./types";
 
+function parseWeightRange(value: string): { max: number; min: number } | null {
+  const parts = value.split("..");
+  const min = Number(parts[0]);
+  const max = Number(parts[1]);
+  return parts.length === 2 && Number.isFinite(min) && Number.isFinite(max) && min <= max
+    ? { min, max }
+    : null;
+}
+
 // Parse Google Fonts family parameter
 // Supports:
 // - Simple: "Roboto"
 // - With weights: "Roboto:400,700"
 // - With styles: "Roboto:italic"
 // - Axes syntax (ital,wght@): "Roboto:ital,wght@1,400;0,700"
-// - Weight axes syntax (wght@): "Roboto:wght@400;700"
+// - Variable ranges (wght@): "Roboto:wght@200..800"
 // - Mixed: "Roboto:400,700italic|Open+Sans:wght@300;600;ital@1"
 export function parseGoogleFontsFamily(family: string): ParsedFont[] {
   const fonts: ParsedFont[] = [];
@@ -18,7 +27,8 @@ export function parseGoogleFontsFamily(family: string): ParsedFont[] {
   for (const familySpec of families) {
     const font: ParsedFont = {
       name: "",
-      weights: ["400"],
+      weights: [],
+      weightRanges: [],
       styles: ["normal"],
     };
 
@@ -40,25 +50,37 @@ export function parseGoogleFontsFamily(family: string): ParsedFont[] {
           const hasWght = axesList.includes("wght");
 
           if (hasItal && hasWght) {
-            // Parse ital,wght@ format: 1,400;0,700
+            // Parse ital,wght@ format: 0,400;1,200..800
             const specs = values?.split(";") || [];
             const weights: FontWeight[] = [];
             const styles: FontStyle[] = [];
 
             for (const s of specs) {
               const [ital, weight] = s.split(",");
-              if (weight) {
+              const style: FontStyle = ital === "1" ? "italic" : "normal";
+              const range = weight ? parseWeightRange(weight) : null;
+
+              if (range) {
+                font.weightRanges.push({ ...range, styles: [style] });
+              } else if (weight) {
                 weights.push(weight as FontWeight);
-                styles.push(ital === "1" ? "italic" : "normal");
               }
+              styles.push(style);
             }
 
             font.weights = [...new Set(weights)];
             font.styles = [...new Set(styles)];
           } else if (hasWght) {
-            // Parse wght@ format: 400;700
-            font.weights = parseWeights(values || "");
-            font.styles = ["normal"];
+            // Parse wght@ format: 400;700 or 200..800
+            for (const spec of values?.split(";") || []) {
+              const range = parseWeightRange(spec);
+              if (range) {
+                font.weightRanges.push({ ...range, styles: ["normal"] });
+              } else if (spec) {
+                font.weights.push(spec as FontWeight);
+              }
+            }
+            font.weights = [...new Set(font.weights)];
           } else if (hasItal) {
             // Parse ital@ format: 1 (italic only)
             font.weights = ["400"];
@@ -96,35 +118,12 @@ export function parseGoogleFontsFamily(family: string): ParsedFont[] {
       font.name = familySpec.replaceAll(/\+/g, " ");
     }
 
+    if (font.weights.length === 0 && font.weightRanges.length === 0) {
+      font.weights = ["400"];
+    }
+
     fonts.push(font);
   }
 
   return fonts;
-}
-
-// Parse weight specifications including ranges
-export function parseWeights(weightSpec: string): FontWeight[] {
-  const weights: FontWeight[] = [];
-  const specs = weightSpec.split(";");
-
-  for (const spec of specs) {
-    if (spec.includes("..")) {
-      // Handle range format like "200..800"
-      const parts = spec.split("..");
-      const start = parts[0] ? Number(parts[0]) : 100;
-      const end = parts[1] ? Number(parts[1]) : 900;
-      const standardWeights = [100, 200, 300, 400, 500, 600, 700, 800, 900];
-
-      for (const weight of standardWeights) {
-        if (weight >= start && weight <= end) {
-          weights.push(String(weight) as FontWeight);
-        }
-      }
-    } else {
-      // Handle individual weights
-      weights.push(spec as FontWeight);
-    }
-  }
-
-  return weights.length > 0 ? weights : ["400"];
 }

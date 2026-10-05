@@ -4,7 +4,33 @@ import { parseGoogleFontsFamily } from "./parse";
 import { getFontshareMeta } from "./providers/fontshare";
 // Font CSS generation utilities
 // Compatible with Google Fonts API
-import type { FontStyle, FontWeight } from "./types";
+import type { FontStyle, FontWeight, FontWeightRange } from "./types";
+
+function normalizeFontshareFileUrl(file: string): string {
+  return file.startsWith("//") ? `https:${file}.woff2` : file;
+}
+
+/**
+ * Get variable font file URL for a weight range from a provider
+ * Only providers with an explicit variable-font source are supported.
+ */
+export async function getVariableFontFileUrl(
+  provider: string,
+  family: string,
+  weightRange: FontWeightRange,
+  style: FontStyle,
+): Promise<string | null> {
+  if (provider !== "fontshare") {
+    return null;
+  }
+
+  const targetItalic = style === "italic";
+  const metadata = await getFontshareMeta();
+  const fontMeta = metadata.find((f) => f.name.toLowerCase() === family.toLowerCase());
+  const matchingStyle = fontMeta?.styles.find((s) => s.is_variable && s.is_italic === targetItalic);
+
+  return matchingStyle?.file ? normalizeFontshareFileUrl(matchingStyle.file) : null;
+}
 
 /**
  * Get font file URL for a specific variant from a provider
@@ -63,24 +89,20 @@ export async function getFontFileUrl(
           targetItalic = false;
         }
 
-        // Find matching style (prefer non-variable fonts)
-        const matchingStyle = fontMeta.styles.find((s) => {
-          const weightMatch =
-            s.weight.number === targetWeight ||
-            s.weight.number === (targetItalic ? targetWeight + 1 : targetWeight);
-          const italicMatch = s.is_italic === targetItalic;
-          return weightMatch && italicMatch && !s.is_variable;
-        });
+        // Fontshare uses 401-style numbers for italic styles; weight.weight is
+        // the semantic CSS weight.
+        const matchingStyle =
+          fontMeta.styles.find(
+            (s) =>
+              !s.is_variable && s.weight.weight === targetWeight && s.is_italic === targetItalic,
+          ) ?? fontMeta.styles.find((s) => s.is_variable && s.is_italic === targetItalic);
 
         if (!matchingStyle?.file) {
           console.warn(`Fontshare: no matching style for ${family} ${variant}`);
           return null;
         }
 
-        // Fontshare returns protocol-relative URL
-        // Prefer woff2 over woff over ttf (browser support order)
-        // All formats are available from Fontshare CDN
-        return `https:${matchingStyle.file}.woff2`;
+        return normalizeFontshareFileUrl(matchingStyle.file);
       } catch (error) {
         console.error(`Fontshare: failed to get metadata for ${family}:`, error);
         return null;
@@ -114,8 +136,29 @@ function safeDisplay(value: string): string {
   return FONT_DISPLAY_VALUES.has(value) ? value : "swap";
 }
 
-function safeWeight(value: FontWeight): FontWeight {
-  return /^\d{1,3}$/.test(String(value)) ? value : "400";
+function safeWeight(value: FontWeight | FontWeightRange): string {
+  if (typeof value !== "string") {
+    return `${value.min} ${value.max}`;
+  }
+  return /^\d{1,3}$/.test(value) ? value : "400";
+}
+
+const STANDARD_WEIGHTS: FontWeight[] = [
+  "100",
+  "200",
+  "300",
+  "400",
+  "500",
+  "600",
+  "700",
+  "800",
+  "900",
+];
+
+function expandWeightRange(weightRange: FontWeightRange): FontWeight[] {
+  return STANDARD_WEIGHTS.filter(
+    (weight) => Number(weight) >= weightRange.min && Number(weight) <= weightRange.max,
+  );
 }
 
 /**
@@ -125,7 +168,7 @@ function safeWeight(value: FontWeight): FontWeight {
 export function generateFontFaceCSS(
   fontUrl: string,
   fontStyle: FontStyle,
-  fontWeight: FontWeight,
+  fontWeight: FontWeight | FontWeightRange,
   display: string,
   fontFamily: string,
   proxy: boolean = false,
@@ -233,11 +276,13 @@ export async function fetchGoogleFontsCSS(options: {
 
   // Replace fonts.gstatic.com URLs with our proxy (only if baseUrl is provided)
   if (baseUrl) {
-    css = css.replace(/url\((https:\/\/fonts\.gstatic\.com\/[^)]+)\)/g, (match, url) => {
-      const urlObj = new URL(url);
-      const proxyPath = urlObj.pathname;
-      return `url('${baseUrl}/fonts/google${proxyPath}')`;
-    });
+    css = css.replace(
+      /url\((['"]?)(https:\/\/fonts\.gstatic\.com\/[^)'"]+)\1\)/g,
+      (_match, _quote, url: string) => {
+        const urlObj = new URL(url);
+        return `url('${baseUrl}/fonts/google${urlObj.pathname}${urlObj.search}')`;
+      },
+    );
   }
 
   return css;
@@ -283,46 +328,83 @@ export async function generateFontCSS(options: {
   // For other providers, generate CSS ourselves
   const fonts = parseGoogleFontsFamily(family);
 
-  // Prepare all font URLs to fetch in parallel
-  const fontConfigs: Array<{
+  // Resolve static variants and variable ranges in parallel
+  type FontUrlConfig = {
+    label: string;
     name: string;
-    weight: FontWeight;
     style: FontStyle;
-    variant: string;
-  }> = [];
+    url: string | null;
+    weight: FontWeight | FontWeightRange;
+  };
+  const fontUrlPromises: Array<Promise<FontUrlConfig | FontUrlConfig[]>> = [];
 
   for (const font of fonts) {
     for (const weight of font.weights) {
       for (const style of font.styles) {
-        // Convert weight and style to Google Fonts variant format
-        let variant: string;
-        if (style === "italic") {
-          variant = weight === "400" ? "italic" : `${weight}italic`;
-        } else {
-          variant = weight === "400" ? "regular" : weight;
+        const variant =
+          style === "italic"
+            ? weight === "400"
+              ? "italic"
+              : `${weight}italic`
+            : weight === "400"
+              ? "regular"
+              : weight;
+
+        fontUrlPromises.push(
+          getFontFileUrl(provider, font.name, variant, subset).then((url) => ({
+            label: variant,
+            name: font.name,
+            style,
+            url,
+            weight,
+          })),
+        );
+      }
+    }
+
+    for (const weightRange of font.weightRanges) {
+      for (const style of weightRange.styles) {
+        const label = `${weightRange.min}..${weightRange.max}`;
+
+        if (provider === "fontshare") {
+          fontUrlPromises.push(
+            getVariableFontFileUrl(provider, font.name, weightRange, style).then((url) => ({
+              label,
+              name: font.name,
+              style,
+              url,
+              weight: weightRange,
+            })),
+          );
+          continue;
         }
 
-        fontConfigs.push({ name: font.name, weight, style, variant });
+        // Providers without an explicit variable source keep their existing
+        // static-weight behavior.
+        for (const weight of expandWeightRange(weightRange)) {
+          const variant = weight === "400" ? "regular" : weight;
+          fontUrlPromises.push(
+            getFontFileUrl(provider, font.name, variant, subset).then((url) => ({
+              label: `${label} ${variant}`,
+              name: font.name,
+              style,
+              url,
+              weight,
+            })),
+          );
+        }
       }
     }
   }
 
-  // Fetch all font URLs in parallel
-  const fontUrls = await Promise.all(
-    fontConfigs.map((config) =>
-      getFontFileUrl(provider, config.name, config.variant, subset).then((url) => ({
-        ...config,
-        url,
-      })),
-    ),
-  );
+  const fontUrls = (await Promise.all(fontUrlPromises)).flat();
 
   // Generate CSS from fetched URLs
   let css = "";
   for (const fontConfig of fontUrls) {
     if (!fontConfig.url) {
       console.warn(
-        `Could not generate URL for ${fontConfig.name} ${fontConfig.variant} (provider: ${provider})`,
+        `Could not generate URL for ${fontConfig.name} ${fontConfig.label} (provider: ${provider})`,
       );
       continue;
     }

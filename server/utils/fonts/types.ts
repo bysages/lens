@@ -21,9 +21,16 @@ export type FontWeight =
   | "normal" // Same as 400
   | "bold"; // Same as 700
 
+export interface FontWeightRange {
+  max: number;
+  min: number;
+  styles: FontStyle[];
+}
+
 export interface ParsedFont {
   name: string;
   weights: FontWeight[];
+  weightRanges: FontWeightRange[];
   styles: FontStyle[];
 }
 
@@ -59,6 +66,7 @@ export interface WebFontItem {
   version?: string;
   lastModified?: string;
   files: Record<string, string>;
+  designers?: string[];
   menu?: string;
 }
 

@@ -1,0 +1,21 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>funish/renovate-config"],
+  "packageRules": [
+    {
+      "description": "TypeScript 7 breaks the nuxt module builder; the 5.x line is the supported one",
+      "matchPackageNames": ["typescript"],
+      "allowedVersions": "<7"
+    },
+    {
+      "description": "vue-tsc 4 is unproven against the pinned typescript; 3.x is the supported line",
+      "matchPackageNames": ["vue-tsc"],
+      "allowedVersions": "<4"
+    },
+    {
+      "description": "The pages build and the workspace toolchain ride the pinned pnpm major",
+      "matchPackageNames": ["pnpm"],
+      "allowedVersions": "<11"
+    }
+  ]
+}

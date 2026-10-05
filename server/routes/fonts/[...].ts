@@ -68,7 +68,8 @@ export default defineHandler(async (event) => {
       fontUrl = `https://fonts.bunny.net${fontpath}`;
       break;
     case "fontshare":
-      fontUrl = `https://api.fontshare.com${fontpath}`;
+      // Font metadata comes from api.fontshare.com; binaries are served by CDN.
+      fontUrl = `https://${fontpath.startsWith("/wf/") ? "cdn" : "api"}.fontshare.com${fontpath}`;
       break;
     case "fontsource":
       fontUrl = `https://cdn.jsdelivr.net${fontpath}`;

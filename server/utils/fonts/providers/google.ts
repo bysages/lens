@@ -9,6 +9,9 @@ import type { WebFontItem } from "../types";
 
 export interface GoogleFontMeta {
   family: string;
+  category?: string | null;
+  designers?: string[] | null;
+  lastModified?: string | null;
   subsets: string[];
   fonts: Record<
     string,
@@ -62,12 +65,16 @@ export function convertMeta(family: string, meta: GoogleFontMeta): WebFontItem {
   // Sort variants - standard Google Fonts API order
   const sortedVariants = sortVariants(Array.from(variants));
 
+  const category = meta.category?.toLowerCase().replace(/\s+/g, "-");
+
   return {
     kind: "webfonts#webfont",
     family,
-    category: categorizeFontFamily(family),
+    category: category || categorizeFontFamily(family),
     variants: sortedVariants,
     subsets,
+    designers: meta.designers ?? undefined,
+    lastModified: meta.lastModified ?? undefined,
     files,
   };
 }
@@ -82,28 +89,55 @@ export async function getGoogleFontsMeta(): Promise<GoogleFontMeta[]> {
     return cached;
   }
 
-  // Fetch from Google Fonts API
-  const response = await fetch(`${API_BASE}/metadata/fonts`, {
-    signal: AbortSignal.timeout(15000),
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}/metadata/fonts`, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+      },
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (error) {
+    throw new HTTPError({
+      status: 502,
+      message: "Failed to fetch Google Fonts metadata",
+      cause: error,
+    });
+  }
+
   if (!response.ok) {
     throw new HTTPError({
       status: 502,
       message: `Google Fonts API returned ${response.status}`,
     });
   }
+
   const text = await response.text();
 
-  // Extract JSON from JSONP response
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
+  // The endpoint normally returns JSON, but historically used JSONP-style
+  // XSSI protection. Taking the first object through the last one covers both.
+  const jsonStart = text.indexOf("{");
+  const jsonEnd = text.lastIndexOf("}");
+  if (jsonStart === -1 || jsonEnd <= jsonStart) {
     throw new HTTPError({
       status: 502,
       message: "Invalid response from Google Fonts API",
     });
   }
 
-  const data = JSON.parse(jsonMatch[0]) as { familyMetadataList: GoogleFontMeta[] };
+  let data: { familyMetadataList: GoogleFontMeta[] };
+  try {
+    data = JSON.parse(text.slice(jsonStart, jsonEnd + 1)) as {
+      familyMetadataList: GoogleFontMeta[];
+    };
+  } catch (error) {
+    throw new HTTPError({
+      status: 502,
+      message: "Invalid JSON from Google Fonts API",
+      cause: error,
+    });
+  }
 
   // Cache for 1 hour
   await storage.setItem(cacheKey, data.familyMetadataList, { ttl: FONT_META_TTL });
