@@ -1,8 +1,10 @@
 import { Readability } from "@mozilla/readability";
 import { parseHTML } from "linkedom";
+import { HTTPError } from "nitro/h3";
 import { type Browser, type Page } from "playwright";
 
-import { BROWSER_MAX_CONCURRENCY, BROWSER_TIMEOUT } from "./constants";
+import { withBrowserSlot } from "./browser-limiter";
+import { BROWSER_TIMEOUT, SCREENSHOT_MAX_PIXELS } from "./constants";
 
 // ── Types ──────────────────────────────────────────────
 
@@ -74,33 +76,6 @@ async function getBrowser(): Promise<Browser> {
   return browserInitializing;
 }
 
-// ── Concurrency Semaphore ──────────────────────────────
-
-const MAX_CONCURRENCY =
-  Number.parseInt(process.env.BROWSER_MAX_CONCURRENCY || "") || BROWSER_MAX_CONCURRENCY;
-
-let activeSlots = 0;
-const slotWaiters: Array<() => void> = [];
-
-async function acquireSlot(): Promise<void> {
-  if (activeSlots < MAX_CONCURRENCY) {
-    activeSlots++;
-    return;
-  }
-  await new Promise<void>((resolve) => {
-    slotWaiters.push(() => {
-      activeSlots++;
-      resolve();
-    });
-  });
-}
-
-function releaseSlot(): void {
-  const next = slotWaiters.shift();
-  if (next) next();
-  else activeSlots--;
-}
-
 // ── Page Helpers ───────────────────────────────────────
 
 /**
@@ -117,12 +92,60 @@ function optimizePage(page: Page): void {
 }
 
 /**
+ * Let in-flight fonts and images settle without waiting indefinitely on a
+ * broken third-party resource. The `load` event still remains the primary
+ * readiness signal; this only prevents screenshots racing font replacement.
+ */
+async function waitForVisualStability(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const settled = new Promise<void>((resolve) => {
+      setTimeout(resolve, 1_500);
+    });
+    const resources = [
+      document.fonts.ready,
+      ...Array.from(document.images)
+        .filter((image) => !image.complete)
+        .map(
+          (image) =>
+            new Promise<void>((resolve) => {
+              image.addEventListener("load", () => resolve(), { once: true });
+              image.addEventListener("error", () => resolve(), { once: true });
+            }),
+        ),
+    ];
+    return Promise.race([settled, Promise.allSettled(resources).then(() => undefined)]);
+  });
+}
+
+function rasterLimit(): number {
+  const value = Number.parseInt(process.env.SCREENSHOT_MAX_PIXELS || "", 10);
+  if (!Number.isFinite(value) || value < 1_000_000) return SCREENSHOT_MAX_PIXELS;
+  return value;
+}
+
+/**
+ * Moli renders a full-document capture as one bitmap rather than tiled output.
+ * Reject pathological documents before allocating an oversized raster.
+ */
+async function validateFullPageExtent(page: Page): Promise<void> {
+  const { width, height } = await page.evaluate(() => ({
+    width: document.documentElement.scrollWidth,
+    height: document.documentElement.scrollHeight,
+  }));
+  if (width * height > rasterLimit()) {
+    throw new HTTPError({
+      status: 400,
+      message: "Full page is too large to render safely; use clip or a smaller viewport",
+    });
+  }
+}
+
+/**
  * Execute a function with a page from the default browser context.
  * Page is automatically closed after the callback completes.
  */
 export async function withPage<T>(fn: (page: Page) => Promise<T>): Promise<T> {
-  await acquireSlot();
-  try {
+  return withBrowserSlot(async () => {
     const b = await getBrowser();
     const page = await b.newPage();
     optimizePage(page);
@@ -132,9 +155,7 @@ export async function withPage<T>(fn: (page: Page) => Promise<T>): Promise<T> {
     } finally {
       await page.close().catch(() => {});
     }
-  } finally {
-    releaseSlot();
-  }
+  });
 }
 
 /**
@@ -146,8 +167,7 @@ export async function withContext<T>(
   mobile: boolean,
   fn: (page: Page) => Promise<T>,
 ): Promise<T> {
-  await acquireSlot();
-  try {
+  return withBrowserSlot(async () => {
     const b = await getBrowser();
 
     const context = await b.newContext({
@@ -169,9 +189,7 @@ export async function withContext<T>(
       await page.close().catch(() => {});
       await context.close().catch(() => {});
     }
-  } finally {
-    releaseSlot();
-  }
+  });
 }
 
 // ── Screenshot Task ────────────────────────────────────
@@ -204,9 +222,12 @@ export async function captureScreenshot(params: ScreenshotParams): Promise<Scree
         waitUntil,
         timeout: timeout ?? BROWSER_TIMEOUT,
       });
-
+      await waitForVisualStability(page);
       if (delay) {
         await page.waitForTimeout(delay);
+      }
+      if (fullPage) {
+        await validateFullPageExtent(page);
       }
 
       const screenshot = await page.screenshot({
@@ -241,7 +262,7 @@ export interface ExtractResult {
   textContent: string;
   /** Article title */
   title: string;
-  /** Short description */
+  /** Plain description */
   excerpt: string;
   /** Author */
   byline: string | null;

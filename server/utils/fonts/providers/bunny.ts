@@ -41,7 +41,7 @@ export async function getBunnyWebFonts(filter?: string): Promise<WebFontItem[]> 
   const meta = await getBunnyFontsMeta();
 
   const filteredEntries = filter
-    ? Object.entries(meta).filter(([_, fontMeta]) =>
+    ? Object.entries(meta).filter(([, fontMeta]) =>
         fontMeta.familyName.toLowerCase().includes(filter.toLowerCase()),
       )
     : Object.entries(meta);

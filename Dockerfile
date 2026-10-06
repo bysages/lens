@@ -24,9 +24,9 @@ WORKDIR /app
 
 # Moli headless browser (https://github.com/lexmount/moli), pinned release
 ARG TARGETARCH
-ARG MOLI_VERSION=1.1.13
-ARG MOLI_AMD64_SHA256=f1af381b570511d96d232872461a11a8ffd246762492f5b63f6495f49cfd24c6
-ARG MOLI_ARM64_SHA256=9dd3dc3474e381b9434cc59e2c7f712ff25a25c02477f10fc3148afe6f616f3e
+ARG MOLI_VERSION=1.1.14
+ARG MOLI_AMD64_SHA256=ccc974768cb6c6e8b75ad2fe5b3d283b8985c40e72d8ce0ccf994d6a5ffb6b41
+ARG MOLI_ARM64_SHA256=499027aaf0430c3f22e35ca73b112a9fa7f60cad66fd0df12240320db5ef3198
 
 # ca-certificates for HTTPS, libcurl4 for Moli's network transport,
 # libfontconfig1 required by Moli's text layout, base fonts so text does not
@@ -71,7 +71,10 @@ ENV PORT=3000
 ENV BROWSER_CDP_ENDPOINT=http://127.0.0.1:9222
 # --block-private-networks (the browser-level SSRF guard) is hardcoded in
 # the entrypoint and cannot be dropped via MOLI_FLAGS
-ENV MOLI_FLAGS="--layout --resource"
+ENV MOLI_VERSION=${MOLI_VERSION}
+ENV XDG_CACHE_HOME=/tmp/lens-cache
+# Bound Moli's outbound fan-out and reuse HTTP responses across screenshots.
+ENV MOLI_FLAGS="--layout --resource --http-cache-dir=/tmp/lens-cache/moli-http --http-max-concurrent=32 --http-max-total-connections=64"
 
 # run the app
 ENTRYPOINT ["/usr/local/bin/lens-entrypoint"]

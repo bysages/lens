@@ -89,10 +89,16 @@ BROWSER_CDP_ENDPOINT=http://127.0.0.1:9222
 #BROWSER_USER_AGENT=...
 #BROWSER_USER_AGENT_MOBILE=...
 
-# Browser: max concurrent pages per cluster worker (default 4)
+# Browser: cluster-wide maximum with Redis (process-local fallback otherwise)
 BROWSER_MAX_CONCURRENCY=4
 
-# Cluster: worker count (defaults to CPU core count)
+# Maximum wait for a global browser slot (ms)
+BROWSER_QUEUE_TIMEOUT=15000
+
+# Reject full-page captures above this CSS pixel count
+SCREENSHOT_MAX_PIXELS=24000000
+
+# Cluster: worker count (Docker defaults to 2; raw Nitro defaults to CPU count)
 NITRO_CLUSTER_WORKERS=2
 ```
 
@@ -177,30 +183,32 @@ https://api.bysages.com/screenshot?url=https://example.com&style=body{background
 
 **Parameters:**
 
-| Parameter    | Description                                                           | Default            |
-| ------------ | --------------------------------------------------------------------- | ------------------ |
-| `url`        | Website URL (required)                                                | -                  |
-| `width`      | Viewport width (100-2560)                                             | 1280               |
-| `height`     | Viewport height (100-1440)                                            | 720                |
-| `type`       | Output format (`png`, `jpeg`)                                         | `png`              |
-| `quality`    | Image quality, 1-100 (jpeg only)                                      | -                  |
-| `fullPage`   | Capture full scrollable page (`true`/`false`)                         | `false`            |
-| `clip`       | Clip region as `x,y,width,height`                                     | -                  |
-| `scale`      | Screenshot scale (`css` for CSS pixels, `device` for device pixels)   | `device`           |
-| `animations` | Animation handling (`disabled` or `allow`)                            | `allow`            |
-| `caret`      | Text caret (`hide` or `initial`)                                      | `hide`             |
-| `style`      | Custom CSS stylesheet to apply                                        | -                  |
-| `timeout`    | Navigation timeout in ms (1000-30000)                                 | 10000              |
-| `mobile`     | Mobile viewport (`true`/`false`)                                      | `false`            |
-| `darkMode`   | Dark mode (`true`/`false`)                                            | `false`            |
-| `waitUntil`  | Navigation wait condition (`load`, `domcontentloaded`, `networkidle`) | `domcontentloaded` |
-| `delay`      | Additional delay in ms after page load (0-10000)                      | -                  |
+| Parameter    | Description                                                           | Default    |
+| ------------ | --------------------------------------------------------------------- | ---------- |
+| `url`        | Website URL (required)                                                | -          |
+| `width`      | Viewport width (100-2560)                                             | 1280       |
+| `height`     | Viewport height (100-1440)                                            | 720        |
+| `type`       | Output format (`png`, `jpeg`)                                         | `png`      |
+| `quality`    | Image quality, 1-100 (jpeg only)                                      | -          |
+| `fullPage`   | Capture full scrollable page (`true`/`false`)                         | `false`    |
+| `clip`       | Clip region as `x,y,width,height`                                     | -          |
+| `scale`      | Screenshot scale (`css` for CSS pixels, `device` for device pixels)   | `device`   |
+| `animations` | Animation handling (`disabled` or `allow`)                            | `disabled` |
+| `caret`      | Text caret (`hide` or `initial`)                                      | `hide`     |
+| `style`      | Custom CSS stylesheet to apply                                        | -          |
+| `timeout`    | Navigation timeout in ms (1000-30000)                                 | 10000      |
+| `mobile`     | Mobile viewport (`true`/`false`)                                      | `false`    |
+| `darkMode`   | Dark mode (`true`/`false`)                                            | `false`    |
+| `waitUntil`  | Navigation wait condition (`load`, `domcontentloaded`, `networkidle`) | `load`     |
+| `delay`      | Additional delay in ms after page load (0-10000)                      | -          |
 
 **Performance Notes:**
 
 - Screenshots are cached for 1 day with rate limiting
 - Identical requests return cached results with sub-second response times
-- The Moli browser loads fonts and media for rendering fidelity; use `animations=disabled` to freeze CSS animations at capture time
+- Screenshots wait briefly for fonts and images, and freeze animations by default
+- Moli renders full-page captures as one bitmap; `SCREENSHOT_MAX_PIXELS` rejects oversized captures
+- `BROWSER_MAX_CONCURRENCY` is cluster-wide with Redis and includes a bounded queue
 
 #### Open Graph Images
 
@@ -522,15 +530,21 @@ REDIS_URL=redis://localhost:6379
 # Browser: Moli CDP endpoint (defaults to http://127.0.0.1:9222)
 BROWSER_CDP_ENDPOINT=http://127.0.0.1:9222
 
-# Browser: max concurrent pages per cluster worker (default 4)
+# Browser: cluster-wide maximum with Redis (process-local fallback otherwise)
 BROWSER_MAX_CONCURRENCY=4
 
-# Cluster: worker count (defaults to CPU core count)
+# Maximum wait for a global browser slot (ms)
+BROWSER_QUEUE_TIMEOUT=15000
+
+# Reject full-page captures above this CSS pixel count
+SCREENSHOT_MAX_PIXELS=24000000
+
+# Cluster: worker count (Docker defaults to 2; raw Nitro defaults to CPU count)
 NITRO_CLUSTER_WORKERS=2
 
 # Moli server flags used by the Docker entrypoint
 # (--block-private-networks is always enforced by the entrypoint)
-MOLI_FLAGS=--layout --resource
+MOLI_FLAGS=--layout --resource --http-cache-dir=/tmp/lens-cache/moli-http --http-max-concurrent=32 --http-max-total-connections=64
 ```
 
 See `.env.example` for all available options.

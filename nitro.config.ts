@@ -2,6 +2,11 @@ import { defineNitroConfig } from "nitro/config";
 
 import pkg from "./package.json";
 
+const sharpTraceDeps =
+  process.platform === "linux"
+    ? [`@img/sharp-libvips-linux-${process.arch === "arm64" ? "arm64" : "x64"}`]
+    : [];
+
 export default defineNitroConfig({
   serverDir: "./server/",
   experimental: {
@@ -29,6 +34,9 @@ export default defineNitroConfig({
       },
     },
   },
+  // sharp dynamically loads this optional libvips package; explicit tracing
+  // prevents Linux images from shipping the sharp native loader only.
+  traceDeps: sharpTraceDeps,
   storage: {
     cache: {
       // FS driver does not support TTL; memory is the build-time default.

@@ -69,12 +69,12 @@ export default defineHandler(async (event) => {
   const waitUntil = oneOf(
     query.waitUntil,
     ["load", "domcontentloaded", "networkidle"] as const,
-    "domcontentloaded",
+    "load",
   )!;
   const delay = clampInt(query.delay, 0, 10000);
   const timeout = clampInt(query.timeout, 1000, 30000);
   const scale = oneOf(query.scale, ["css", "device"] as const);
-  const animations = oneOf(query.animations, ["disabled", "allow"] as const);
+  const animations = oneOf(query.animations, ["disabled", "allow"] as const, "disabled");
   const caret = oneOf(query.caret, ["hide", "initial"] as const);
   const style = firstString(query.style);
   const clip = firstString(query.clip);
@@ -89,6 +89,8 @@ export default defineHandler(async (event) => {
   }
 
   const cacheKey = `screenshot:${hash({
+    // Rendering fixes and engine policy changes must not replay old images.
+    browserEngine: process.env.MOLI_VERSION || "local",
     url,
     width,
     height,

@@ -38,8 +38,17 @@ export const SCREENSHOT_MAX_HEIGHT = 1440;
 /** Screenshot/Reader: default navigation timeout (ms) */
 export const BROWSER_TIMEOUT = 10000;
 
-/** Browser: max concurrent pages per worker */
+/**
+ * Browser: maximum in-flight Moli pages for the whole deployment. With Redis
+ * this is a cluster-wide limit; without Redis it is a per-worker safety limit.
+ */
 export const BROWSER_MAX_CONCURRENCY = 4;
+
+/** Browser: maximum time one request may wait for a global Moli slot (ms) */
+export const BROWSER_QUEUE_TIMEOUT = 15000;
+
+/** Screenshot: reject full-page captures whose raster would exceed ~128 MiB */
+export const SCREENSHOT_MAX_PIXELS = 32_000_000;
 
 /** Favicon: default icon size */
 export const FAVICON_DEFAULT_SIZE = 32;
