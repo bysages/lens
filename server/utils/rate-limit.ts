@@ -51,12 +51,57 @@ interface RateWindowState {
  * not atomic, so concurrent bursts may exceed the limit slightly —
  * acceptable for a protective limit.
  */
+const localRateStates = new Map<string, RateWindowState>();
+const LOCAL_RATE_LIMIT_CAPACITY = 10_000;
+
+/** Keep the degraded limiter bounded when Redis is briefly unavailable. */
+function rememberLocalRate(key: string, value: RateWindowState): void {
+  if (localRateStates.size >= LOCAL_RATE_LIMIT_CAPACITY) {
+    const now = Date.now();
+    for (const [expiredKey, state] of localRateStates) {
+      if (state.expiresAt <= now) localRateStates.delete(expiredKey);
+      if (localRateStates.size < LOCAL_RATE_LIMIT_CAPACITY) break;
+    }
+    if (localRateStates.size >= LOCAL_RATE_LIMIT_CAPACITY) {
+      const oldest = localRateStates.keys().next().value;
+      if (oldest !== undefined) localRateStates.delete(oldest);
+    }
+  }
+  localRateStates.set(key, value);
+}
+
+async function readRateState(
+  storage: ReturnType<typeof useStorage>,
+  key: string,
+): Promise<RateWindowState | null> {
+  try {
+    return (await storage.getItem<RateWindowState>(key)) ?? null;
+  } catch {
+    const state = localRateStates.get(key);
+    return state && state.expiresAt > Date.now() ? state : null;
+  }
+}
+
+async function writeRateState(
+  storage: ReturnType<typeof useStorage>,
+  key: string,
+  value: RateWindowState,
+  ttl: number,
+): Promise<void> {
+  try {
+    await storage.setItem(key, value, { ttl });
+    localRateStates.delete(key);
+  } catch {
+    rememberLocalRate(key, value);
+  }
+}
+
 export async function rateLimit(event: H3Event, options: RateLimitOptions): Promise<void> {
   const storage = useStorage("cache");
   const key = `ratelimit:${options.scope ? `${options.scope}:` : ""}${hash(getClientIP(event))}`;
   const now = Date.now();
 
-  const state = await storage.getItem<RateWindowState>(key);
+  const state = await readRateState(storage, key);
   const expired = !state || state.expiresAt <= now;
   const count = (expired ? 0 : state.count) + 1;
 
@@ -72,5 +117,5 @@ export async function rateLimit(event: H3Event, options: RateLimitOptions): Prom
   const value: RateWindowState = expired
     ? { count, expiresAt: now + options.window * 1000 }
     : { count, expiresAt: state.expiresAt };
-  await storage.setItem(key, value, { ttl: options.window });
+  await writeRateState(storage, key, value, options.window);
 }

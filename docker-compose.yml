@@ -17,6 +17,11 @@ services:
       ALLOWED_DOMAINS: ${ALLOWED_DOMAINS:-}
       # Set TRUST_PROXY=1 only when requests arrive through a trusted reverse proxy
       TRUST_PROXY: ${TRUST_PROXY:-}
+      BROWSER_RATE_LIMIT: ${BROWSER_RATE_LIMIT:-20}
+      FAVICON_RATE_LIMIT: ${FAVICON_RATE_LIMIT:-30}
+      IMAGE_RATE_LIMIT: ${IMAGE_RATE_LIMIT:-120}
+      GRAVATAR_RATE_LIMIT: ${GRAVATAR_RATE_LIMIT:-120}
+      RATE_WINDOW: ${RATE_WINDOW:-60}
       # Caching: LRU-evicted and shared across cluster workers
       REDIS_URL: ${REDIS_URL:-redis://127.0.0.1:6379}
       # Two workers handle I/O-heavy proxy work without six full app runtimes.

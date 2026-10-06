@@ -96,15 +96,29 @@ async function acquireRedis(redis: Redis, limit: number, timeoutMs: number): Pro
 }
 
 /**
+ * Acquire the most restrictive available slot. Redis transport failures fall
+ * back to the process semaphore rather than turning a cacheable render into a
+ * 500; explicit queue timeouts still propagate as 503.
+ */
+async function acquireSlot(): Promise<Release> {
+  const redis = getRedis();
+  if (!redis) return acquireLocal(concurrencyLimit(), queueTimeout());
+
+  try {
+    return await acquireRedis(redis, concurrencyLimit(), queueTimeout());
+  } catch (error) {
+    if (error instanceof HTTPError) throw error;
+    return acquireLocal(concurrencyLimit(), queueTimeout());
+  }
+}
+
+/**
  * Limit Moli pages globally when Redis is available. The fallback is still a
  * bounded process semaphore, so a deployment without Redis cannot fan out
  * indefinitely inside one worker.
  */
 export async function withBrowserSlot<T>(operation: () => Promise<T>): Promise<T> {
-  const redis = getRedis();
-  const release = redis
-    ? await acquireRedis(redis, concurrencyLimit(), queueTimeout())
-    : await acquireLocal(concurrencyLimit(), queueTimeout());
+  const release = await acquireSlot();
 
   try {
     return await operation();

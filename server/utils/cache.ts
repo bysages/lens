@@ -98,6 +98,39 @@ async function withCacheLock<T>(key: string, operation: () => Promise<T>): Promi
 }
 
 /**
+ * Cache reads and writes are best-effort: a Redis outage must degrade to a
+ * cache miss instead of failing the underlying request.
+ */
+async function readCacheItem(storage: ReturnType<typeof useStorage>, key: string) {
+  try {
+    const [value, meta] = await Promise.all([
+      storage.getItemRaw<Uint8Array | string>(key),
+      storage.getMeta(key),
+    ]);
+    return value == null ? null : { value, meta };
+  } catch {
+    return null;
+  }
+}
+
+async function writeCacheItem(
+  storage: ReturnType<typeof useStorage>,
+  key: string,
+  value: Uint8Array | string,
+  meta: { etag: string; contentType: string },
+  ttl: number,
+): Promise<void> {
+  try {
+    await Promise.all([
+      storage.setItemRaw(key, value, { ttl }),
+      storage.setMeta(key, meta, { ttl }),
+    ]);
+  } catch {
+    // The freshly produced response is still returned when persistence fails.
+  }
+}
+
+/**
  * Shared cache/ETag/304 handling for the response routes: reads through the
  * "cache" mount, negotiates If-None-Match against the payload's strong ETag,
  * and persists fresh payloads with ETag and content type in metadata.
@@ -108,10 +141,10 @@ export async function serveCached(
   options: ServeCachedOptions,
 ): Promise<Buffer | string | null> {
   const storage = useStorage("cache");
-  const cached = await storage.getItemRaw<Uint8Array | string>(options.key);
+  const cachedItem = await readCacheItem(storage, options.key);
 
-  if (cached != null) {
-    const meta = await storage.getMeta(options.key);
+  if (cachedItem) {
+    const { value: cached, meta } = cachedItem;
     const etag =
       typeof meta?.etag === "string"
         ? meta.etag
@@ -135,9 +168,9 @@ export async function serveCached(
   const payload = await runLocallyOnce(options.key, () =>
     withCacheLock(options.key, async (): Promise<CachePayload> => {
       // Another worker may have refreshed the value while this request waited.
-      const refreshed = await storage.getItemRaw<Uint8Array | string>(options.key);
-      if (refreshed != null) {
-        const meta = await storage.getMeta(options.key);
+      const refreshedItem = await readCacheItem(storage, options.key);
+      if (refreshedItem) {
+        const { value: refreshed, meta } = refreshedItem;
         return {
           data: typeof refreshed === "string" ? refreshed : Buffer.from(refreshed),
           etag:
@@ -160,14 +193,13 @@ export async function serveCached(
           ? Buffer.byteLength(entry.data, "utf8")
           : entry.data.byteLength;
       if (!options.maxBytes || size <= options.maxBytes) {
-        await Promise.all([
-          storage.setItemRaw(
-            options.key,
-            typeof entry.data === "string" ? entry.data : new Uint8Array(entry.data),
-            { ttl: options.ttl },
-          ),
-          storage.setMeta(options.key, { etag, contentType }, { ttl: options.ttl }),
-        ]);
+        await writeCacheItem(
+          storage,
+          options.key,
+          typeof entry.data === "string" ? entry.data : new Uint8Array(entry.data),
+          { etag, contentType },
+          options.ttl,
+        );
       }
       return { data: entry.data, etag, contentType };
     }),

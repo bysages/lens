@@ -67,20 +67,27 @@ export const OG_DEFAULT_HEIGHT = 630;
 
 // ── Rate Limit ──────────────────────────────────────
 
-/** Browser rate limit: 10 requests per minute per IP (shared by reader/screenshot/MCP) */
-export const BROWSER_RATE_LIMIT = 10;
+/** Parse an optional positive integer environment override. */
+function envInt(name: string, fallback: number, max: number): number {
+  const value = Number.parseInt(process.env[name] || "", 10);
+  if (!Number.isFinite(value) || value < 1) return fallback;
+  return Math.min(value, max);
+}
 
-/** Favicon rate limit: extraction fans out ~70 upstream probes per cache miss */
-export const FAVICON_RATE_LIMIT = 60;
+/** Browser rate limit (shared by reader/screenshot/MCP). */
+export const BROWSER_RATE_LIMIT = envInt("BROWSER_RATE_LIMIT", 20, 10_000);
 
-/** Image proxy rate limit: fetching arbitrary remote images is bandwidth-amplifying */
-export const IMAGE_RATE_LIMIT = 120;
+/** Favicon rate limit: extraction fans out many upstream probes per cache miss. */
+export const FAVICON_RATE_LIMIT = envInt("FAVICON_RATE_LIMIT", 30, 10_000);
 
-/** Gravatar rate limit: proxies upstream avatar fetches */
-export const GRAVATAR_RATE_LIMIT = 120;
+/** Image proxy rate limit: fetching arbitrary remote images is bandwidth-amplifying. */
+export const IMAGE_RATE_LIMIT = envInt("IMAGE_RATE_LIMIT", 120, 100_000);
 
-/** Shared rate limit window: 60 seconds */
-export const RATE_WINDOW = 60;
+/** Gravatar rate limit: proxies upstream avatar fetches. */
+export const GRAVATAR_RATE_LIMIT = envInt("GRAVATAR_RATE_LIMIT", 120, 100_000);
+
+/** Shared rate-limit window in seconds. */
+export const RATE_WINDOW = envInt("RATE_WINDOW", 60, 3600);
 
 /** Cache entries larger than this are served but not persisted (the memory driver has no eviction) */
 export const MAX_CACHE_ENTRY_BYTES = 10 * 1024 * 1024;

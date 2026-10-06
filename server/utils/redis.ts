@@ -1,4 +1,15 @@
-import Redis, { type Redis as RedisClient } from "ioredis";
+import Redis, { type Redis as RedisClient, type RedisOptions } from "ioredis";
+
+/**
+ * Fail fast so request paths can degrade locally instead of waiting on an
+ * unavailable coordination backend.
+ */
+export const redisClientOptions: RedisOptions = {
+  connectTimeout: 2_000,
+  enableOfflineQueue: false,
+  maxRetriesPerRequest: 1,
+  retryStrategy: (attempt) => Math.min(attempt * 500, 5_000),
+};
 
 let client: RedisClient | null = null;
 let lastErrorAt = 0;
@@ -13,12 +24,7 @@ export function getRedis(): RedisClient | null {
   if (!url) return null;
   if (client) return client;
 
-  client = new Redis(url, {
-    connectTimeout: 2_000,
-    enableOfflineQueue: false,
-    maxRetriesPerRequest: 1,
-    retryStrategy: (attempt) => Math.min(attempt * 500, 5_000),
-  });
+  client = new Redis(url, redisClientOptions);
   client.on("error", (error) => {
     const now = Date.now();
     if (now - lastErrorAt > 30_000) {

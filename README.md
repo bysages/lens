@@ -79,6 +79,13 @@ ALLOWED_DOMAINS=example.com,cdn.example.com
 # Set only when requests arrive through a trusted reverse proxy
 TRUST_PROXY=1
 
+# Requests per IP within RATE_WINDOW seconds; Redis makes these cluster-wide
+BROWSER_RATE_LIMIT=20
+FAVICON_RATE_LIMIT=30
+IMAGE_RATE_LIMIT=120
+GRAVATAR_RATE_LIMIT=120
+RATE_WINDOW=60
+
 # Caching (significantly improves performance)
 REDIS_URL=redis://localhost:6379
 
