@@ -14,6 +14,7 @@ function clampNumber(value: unknown, min: number, max: number): number | undefin
 // ── MCP Protocol Methods ─────────────────────────────────
 
 export default defineJsonRpcHandler({
+  allowedOrigins: "*",
   methods: {
     initialize: () => ({
       protocolVersion: "2025-03-26",

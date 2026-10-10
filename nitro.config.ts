@@ -14,7 +14,14 @@ export default defineNitroConfig({
   },
   routeRules: {
     "/**": {
-      cors: true,
+      cors: {
+        origin: "*",
+        methods: ["GET", "HEAD", "POST", "OPTIONS"],
+        allowHeaders: "*",
+        exposeHeaders: "*",
+        maxAge: "86400",
+        preflight: { statusCode: 204 },
+      },
     },
   },
   openAPI: {

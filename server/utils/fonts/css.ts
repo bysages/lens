@@ -172,12 +172,12 @@ export function generateFontFaceCSS(
   display: string,
   fontFamily: string,
   proxy: boolean = false,
-  baseUrl: string = "",
 ): string {
   let fontSrcUrl = fontUrl;
 
-  // Optionally rewrite URLs to use our proxy
-  if (proxy && baseUrl) {
+  // Relative proxy URLs inherit the CSS document's origin and scheme. This
+  // avoids mixed-content failures when an HTTPS reverse proxy terminates TLS.
+  if (proxy) {
     const url = new URL(fontUrl);
     let provider = "google";
     let fontPath = url.pathname;
@@ -193,7 +193,7 @@ export function generateFontFaceCSS(
       provider = "fontsource";
     }
 
-    fontSrcUrl = `${baseUrl}/fonts/${provider}${fontPath}`;
+    fontSrcUrl = `/fonts/${provider}${fontPath}`;
   }
 
   // Infer format from URL extension
@@ -232,17 +232,17 @@ export async function fetchGoogleFontsCSS(options: {
   family: string;
   display?: string;
   subset?: string;
-  baseUrl?: string;
   userAgent?: string | null;
   useV2API?: boolean;
+  proxy?: boolean;
 }): Promise<string> {
   const {
     family,
     display = "swap",
     subset = "latin",
-    baseUrl = "",
     userAgent = null,
     useV2API = true,
+    proxy = false,
   } = options;
 
   // Construct Google Fonts API URL
@@ -274,13 +274,14 @@ export async function fetchGoogleFontsCSS(options: {
 
   let css = await response.text();
 
-  // Replace fonts.gstatic.com URLs with our proxy (only if baseUrl is provided)
-  if (baseUrl) {
+  // Replace fonts.gstatic.com URLs with same-origin relative proxy URLs.
+  // Relative URLs preserve the HTTPS scheme behind a TLS reverse proxy.
+  if (proxy) {
     css = css.replace(
       /url\((['"]?)(https:\/\/fonts\.gstatic\.com\/[^)'"]+)\1\)/g,
       (_match, _quote, url: string) => {
         const urlObj = new URL(url);
-        return `url('${baseUrl}/fonts/google${urlObj.pathname}${urlObj.search}')`;
+        return `url('/fonts/google${urlObj.pathname}${urlObj.search}')`;
       },
     );
   }
@@ -298,7 +299,6 @@ export async function generateFontCSS(options: {
   subset?: string;
   provider?: string;
   proxy?: boolean;
-  baseUrl?: string;
   userAgent?: string | null;
   useV2API?: boolean;
 }): Promise<string> {
@@ -308,7 +308,6 @@ export async function generateFontCSS(options: {
     subset = "latin",
     provider = "google",
     proxy = false,
-    baseUrl = "",
     userAgent = null,
     useV2API = true,
   } = options;
@@ -319,9 +318,9 @@ export async function generateFontCSS(options: {
       family,
       display,
       subset,
-      baseUrl,
       userAgent,
       useV2API,
+      proxy,
     });
   }
 
@@ -416,7 +415,6 @@ export async function generateFontCSS(options: {
       display,
       fontConfig.name,
       proxy,
-      baseUrl,
     );
   }
 
