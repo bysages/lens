@@ -13,3 +13,7 @@ helm-charts
 .editorconfig
 .idea
 coverage*
+.nitro
+.output
+.cache
+.data
