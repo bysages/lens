@@ -2,7 +2,7 @@ allowBuilds:
   sharp: true
 
 minimumReleaseAgeExclude:
-  - unimage@0.0.2
+  - unimage@0.0.3
   - unpalette@0.0.1
 
 # pnpm 11 ignores shamefully-hoist from .npmrc; hoisting keeps transitive
