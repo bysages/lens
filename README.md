@@ -9,7 +9,7 @@
 
 ### Core Services
 
-- **🖼️ Image Proxy**: IPX-powered image processing with resize, format conversion, optimization
+- **🖼️ Image Proxy**: UnImage-powered image processing with resize, format conversion, optimization
 - **📸 Screenshot Capture**: Fast website screenshot service with resource optimization
 - **📄 Reader**: Article content extraction (Markdown/HTML) with Readability
 - **🅰️ Font Service**: Google Fonts compatible API with multiple providers
@@ -119,7 +119,7 @@ All cached responses include `X-Cache` headers (HIT/MISS) and `ETag` headers for
 
 #### Image Proxy
 
-Transform and optimize images on-the-fly:
+Transform and optimize images with [UnImage](https://www.npmjs.com/package/unimage), using IPX-compatible URLs:
 
 ```
 GET /img/{modifiers}/{image_url}
@@ -128,29 +128,33 @@ GET /img/{modifiers}/{image_url}
 **Examples:**
 
 ```bash
-# Resize to 300px width, convert to WebP
+# Resize to 300px width, negotiate the best supported format
+https://api.bysages.com/img/w_300,f_auto/https://example.com/image.jpg
+
+# Explicit WebP output
 https://api.bysages.com/img/w_300,f_webp/https://example.com/image.jpg
 
-# Create 200x200 square thumbnail
+# Create a 200x200 cover thumbnail
 https://api.bysages.com/img/s_200x200,q_80/https://example.com/image.png
 
-# Smart crop with high quality
-https://api.bysages.com/img/w_400,h_300,c_fill,q_95/https://example.com/photo.jpg
+# Rotate and desaturate
+https://api.bysages.com/img/rotate_90,grayscale/https://example.com/photo.jpg
+
+# Pass through a local /public asset without modifiers
+https://api.bysages.com/img/_/favicon.svg
 ```
 
-**Supported Modifiers:**
+**Common Modifiers:**
 
-- `w_XXX` - Width
-- `h_XXX` - Height
-- `s_XXXxYYY` - Size (width x height)
-- `f_FORMAT` - Format (webp, jpg, png, avif)
-- `q_XXX` - Quality (1-100)
-- `c_MODE` - Crop mode (fill, fit, pad)
+- `w_XXX` / `h_XXX` - Width / height
+- `s_XXXxYYY` - Size shorthand
+- `fit_contain|cover|fill|outside` - Fit mode
+- `f_FORMAT` - Output format (`webp`, `jpg`, `png`, `avif`, `svg`, `gif`, and more; `f_auto` negotiates by `Accept`)
+- `q_XXX` - Quality
+- `rotate_90`, `grayscale`, `blur_2`, `sharpen_1`, `animated` - Common transforms
+- `_/path` - Modifier-less passthrough
 
-**Performance Features:**
-
-- Redis caching for optimal performance
-- Automatic format optimization and compression
+The server stack uses SVGO for SVG, Canvas for supported operations, and Sharp as the raster fallback. Remote images are protected by domain allowlists, DNS/private-address checks, and redirect validation. Local paths stay inside `public`. Responses use Redis-backed caching, strong ETags, 304s, and `Vary: Accept` for negotiated formats.
 
 #### Screenshot Capture
 
@@ -419,7 +423,7 @@ Lens is built with modern web standards and follows clean architecture principle
 
 - **Runtime**: Node.js 22+ with Nitro
 - **Language**: TypeScript with strict type safety
-- **Image Proxy**: IPX with Sharp
+- **Image Proxy**: UnImage with SVGO, Canvas, and Sharp
 - **Browser Automation**: [Moli](https://github.com/lexmount/moli) headless browser driven over CDP by Playwright
 - **Caching**: Redis with unstorage
 

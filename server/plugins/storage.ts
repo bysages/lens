@@ -22,13 +22,12 @@ export default definePlugin(async () => {
     url,
     base: "lens",
     ...redisClientOptions,
-    lib: () => import("ioredis"),
   });
 
   try {
     // ioredis treats a missing error listener as an unhandled event. Cache
     // callers already degrade locally, so keep reconnect noise throttled.
-    const client = (await driver.getInstance?.()) as Redis | undefined;
+    const client = driver.getInstance?.() as Redis | undefined;
     let lastErrorAt = 0;
     client?.on("error", (error: Error) => {
       const now = Date.now();

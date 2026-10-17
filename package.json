@@ -2,16 +2,16 @@
   "name": "lens",
   "version": "0.0.0",
   "private": true,
-  "description": "High-performance image proxy and web services toolkit with IPX, screenshot capture, font serving, and OG image generation",
+  "description": "High-performance image proxy and web services toolkit with unimage, screenshot capture, font serving, and OG image generation",
   "keywords": [
     "fonts",
     "image-proxy",
-    "ipx",
     "nitro",
     "og-images",
     "performance",
     "screenshot",
     "typescript",
+    "unimage",
     "web-services"
   ],
   "homepage": "https://github.com/bysages/lens#readme",
@@ -42,18 +42,20 @@
   "devDependencies": {
     "@funish/basis": "0.3.0",
     "@mozilla/readability": "0.6.0",
+    "@napi-rs/canvas": "1.0.11",
     "@types/node": "26.6.4",
     "@types/turndown": "5.0.6",
     "@vercel/og": "0.11.1",
     "cheerio": "1.2.0",
     "ioredis": "6.0.0",
-    "ipdo": "0.0.6",
-    "ipx": "4.0.0-beta.1",
     "linkedom": "0.18.13",
     "nitro": "3.0.260903-beta",
     "playwright": "1.63.0",
     "sharp": "0.35.5",
+    "svgo": "4.1.0",
     "turndown": "7.2.4",
+    "unimage": "0.0.2",
+    "unstorage": "1.17.5",
     "vite-plus": "1.0.0"
   }
 }

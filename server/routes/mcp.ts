@@ -379,7 +379,7 @@ export default defineJsonRpcHandler({
             throw new HTTPError({ status: 400, message: "Missing or invalid 'url' parameter" });
           }
 
-          // Build IPX modifier path: /img/{modifiers}/{image_url}
+          // Build UnImage modifier path: /img/{modifiers}/{image_url}
           const clampedWidth = clampNumber(width, 1, 8192);
           const clampedHeight = clampNumber(height, 1, 8192);
           const clampedQuality = clampNumber(quality, 1, 100);

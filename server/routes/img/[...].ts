@@ -1,7 +1,12 @@
-import { createIPX, ipxHttpStorage, ipxFSStorage, createIPXFetchHandler } from "ipx";
 import { defineHandler, HTTPError, getRouterParam } from "nitro/h3";
 import { hash } from "ohash";
 import { env } from "std-env";
+import {
+  createImageProxy,
+  createImageProxyFetchHandler,
+  fsDriver,
+  httpDriver,
+} from "unimage/server";
 
 import { serveCached } from "../../utils/cache";
 import {
@@ -21,26 +26,26 @@ export const allowedDomains = env.ALLOWED_DOMAINS
       .filter(Boolean)
   : [];
 
-// Create IPX instance
-export const ipx = createIPX({
-  storage: ipxFSStorage({ dir: "./public" }),
-  httpStorage: ipxHttpStorage({
+const imageProxy = createImageProxy({
+  storage: fsDriver({ dir: "./public", maxAge: IMAGE_PROXY_TTL }),
+  httpStorage: httpDriver({
     domains: allowedDomains,
     allowAllDomains: allowedDomains.length === 0,
+    blockPrivateIPs: true,
     maxAge: IMAGE_PROXY_TTL,
   }),
   maxAge: IMAGE_PROXY_TTL,
 });
 
-const fetchHandler = createIPXFetchHandler(ipx);
+const fetchHandler = createImageProxyFetchHandler(imageProxy);
 
 /**
- * IPX only enforces its domain allowlist; the source id is otherwise
- * fetched as-is. IPX builds the id from everything after the modifiers
- * segment and decodes it (its validateId decodes a second time), so
- * replicate that here and run every remote URL the request could fetch
- * through the private-network check. Scheme slashes may be collapsed to
- * one by URL normalization along the way, so both forms are covered.
+ * UnImage only enforces its domain allowlist; the source id is otherwise
+ * fetched as-is. The URL parser decodes the source once and HTTP storage
+ * decodes it once more, so replicate both forms here and run every remote URL
+ * the request could fetch through the private-network check. Scheme slashes
+ * may be collapsed to one by URL normalization along the way, so both forms
+ * are covered.
  */
 async function assertSafeSource(path: string): Promise<void> {
   const rawId = path.split("/").filter(Boolean).slice(1).join("/");
@@ -72,11 +77,14 @@ export default defineHandler(async (event) => {
 
   await assertSafeSource(path);
 
-  const ipxPath = "/" + path;
+  const proxyPath = "/" + path;
   const url = new URL(event.req.url);
-  url.pathname = ipxPath;
+  url.pathname = proxyPath;
 
-  const cacheKey = `img:${hash(ipxPath)}`;
+  // v2 avoids serving stale IPX bytes produced under the same URL.
+  // `f_auto` negotiates from Accept, so Accept participates in the cache key.
+  const accept = event.req.headers.get("accept") ?? "";
+  const cacheKey = `img:v2:${hash([proxyPath, accept])}`;
 
   const data = await serveCached(event, {
     key: cacheKey,
@@ -90,7 +98,11 @@ export default defineHandler(async (event) => {
       const response = await fetchHandler(new Request(url, event.req));
       // Error bodies must neither be served as images nor poison the cache
       if (!response.ok) {
-        throw new HTTPError({ status: response.status, message: "Image processing failed" });
+        throw new HTTPError({
+          status: response.status,
+          statusText: response.statusText || "IMAGE_PROCESSING_FAILED",
+          message: "Image processing failed",
+        });
       }
 
       return {
@@ -100,7 +112,8 @@ export default defineHandler(async (event) => {
     },
   });
 
-  // Mirror IPX's own response hardening for processed images
+  event.res.headers.set("Vary", "Accept");
+  // Mirror the image handler's response hardening for processed images
   if (data) {
     event.res.headers.set("Content-Security-Policy", "default-src 'none'");
   }

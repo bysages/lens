@@ -2,10 +2,11 @@ import { defineNitroConfig } from "nitro/config";
 
 import pkg from "./package.json";
 
+const linuxArch = process.arch === "arm64" ? "arm64" : "x64";
 const sharpTraceDeps =
-  process.platform === "linux"
-    ? [`@img/sharp-libvips-linux-${process.arch === "arm64" ? "arm64" : "x64"}`]
-    : [];
+  process.platform === "linux" ? [`@img/sharp-libvips-linux-${linuxArch}`] : [];
+const canvasTraceDeps =
+  process.platform === "linux" ? [`@napi-rs/canvas-linux-${linuxArch}-gnu`] : [];
 
 export default defineNitroConfig({
   serverDir: "./server/",
@@ -41,9 +42,10 @@ export default defineNitroConfig({
       },
     },
   },
-  // sharp dynamically loads this optional libvips package; explicit tracing
-  // prevents Linux images from shipping the sharp native loader only.
-  traceDeps: sharpTraceDeps,
+  // sharp dynamically loads libvips and @napi-rs/canvas dynamically loads its
+  // platform binary; explicit tracing prevents Linux images from shipping the
+  // JavaScript loaders only.
+  traceDeps: [...sharpTraceDeps, ...canvasTraceDeps],
   storage: {
     cache: {
       // FS driver does not support TTL; memory is the build-time default.
