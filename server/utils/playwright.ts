@@ -176,7 +176,7 @@ export async function withContext<T>(
       ...((mobile ? MOBILE_USER_AGENT : DESKTOP_USER_AGENT) && {
         userAgent: mobile ? MOBILE_USER_AGENT : DESKTOP_USER_AGENT,
       }),
-      isMobile: mobile,
+      // Moli's CDP backend rejects Playwright's isMobile emulation.
       hasTouch: mobile,
     });
 

@@ -26,7 +26,6 @@ export interface ScreenshotQuery {
   fullPage?: string;
   quality?: string;
   clip?: string;
-  omitBackground?: string;
   scale?: string;
   animations?: string;
   caret?: string;
@@ -78,15 +77,6 @@ export default defineHandler(async (event) => {
   const caret = oneOf(query.caret, ["hide", "initial"] as const);
   const style = firstString(query.style);
   const clip = firstString(query.clip);
-
-  // Moli does not implement the CDP method behind this option — fail fast
-  // with a clear status instead of an opaque browser error
-  if (boolParam(query.omitBackground)) {
-    throw new HTTPError({
-      status: 400,
-      message: "omitBackground is not supported by the Moli browser kernel",
-    });
-  }
 
   const cacheKey = `screenshot:${hash({
     // Rendering fixes and engine policy changes must not replay old images.

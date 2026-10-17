@@ -30,7 +30,7 @@
 
 ### Prerequisites
 
-- Node.js 22+
+- Node.js 24+
 - pnpm 10+ (recommended) or npm
 - [Moli](https://github.com/lexmount/moli) headless browser (screenshot/reader connect to it over CDP)
 
@@ -113,7 +113,7 @@ See `.env.example` for all available options.
 
 ## 📡 API Reference
 
-All cached responses include `X-Cache` headers (HIT/MISS) and `ETag` headers for conditional 304 responses.
+Cache-backed routes return `X-Cache` and a strong `ETag`; matching `If-None-Match` requests receive `304`.
 
 ### Images
 
@@ -140,8 +140,6 @@ https://api.bysages.com/img/s_200x200,q_80/https://example.com/image.png
 # Rotate and desaturate
 https://api.bysages.com/img/rotate_90,grayscale/https://example.com/photo.jpg
 
-# Pass through a local /public asset without modifiers
-https://api.bysages.com/img/_/favicon.svg
 ```
 
 **Common Modifiers:**
@@ -158,7 +156,7 @@ The server stack uses SVGO for SVG, Canvas for supported operations, and Sharp a
 
 #### Screenshot Capture
 
-Capture website screenshots with Playwright-aligned options:
+Capture website screenshots with browser-style options:
 
 ```
 GET /screenshot?url={website_url}&options
@@ -208,7 +206,7 @@ https://api.bysages.com/screenshot?url=https://example.com&style=body{background
 | `caret`      | Text caret (`hide` or `initial`)                                      | `hide`     |
 | `style`      | Custom CSS stylesheet to apply                                        | -          |
 | `timeout`    | Navigation timeout in ms (1000-30000)                                 | 10000      |
-| `mobile`     | Mobile viewport (`true`/`false`)                                      | `false`    |
+| `mobile`     | Mobile user agent and touch input (`true`/`false`)                    | `false`    |
 | `darkMode`   | Dark mode (`true`/`false`)                                            | `false`    |
 | `waitUntil`  | Navigation wait condition (`load`, `domcontentloaded`, `networkidle`) | `load`     |
 | `delay`      | Additional delay in ms after page load (0-10000)                      | -          |
@@ -421,7 +419,7 @@ Lens is built with modern web standards and follows clean architecture principle
 
 ### Core Technologies
 
-- **Runtime**: Node.js 22+ with Nitro
+- **Runtime**: Node.js 24+ with Nitro
 - **Language**: TypeScript with strict type safety
 - **Image Proxy**: UnImage with SVGO, Canvas, and Sharp
 - **Browser Automation**: [Moli](https://github.com/lexmount/moli) headless browser driven over CDP by Playwright
@@ -439,7 +437,7 @@ Lens is built with modern web standards and follows clean architecture principle
 
 ### Prerequisites
 
-- **Node.js** 22+ runtime
+- **Node.js** 24+ runtime
 - **pnpm** 10+ package manager
 - **Redis** (bundled in Docker Compose; optional for other setups)
 

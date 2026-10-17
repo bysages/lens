@@ -81,7 +81,7 @@ export default defineHandler(async (event) => {
   const url = new URL(event.req.url);
   url.pathname = proxyPath;
 
-  // v2 avoids serving stale IPX bytes produced under the same URL.
+  // v2 avoids serving stale bytes produced under the same URL.
   // `f_auto` negotiates from Accept, so Accept participates in the cache key.
   const accept = event.req.headers.get("accept") ?? "";
   const cacheKey = `img:v2:${hash([proxyPath, accept])}`;

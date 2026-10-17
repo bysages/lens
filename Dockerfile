@@ -24,9 +24,9 @@ WORKDIR /app
 
 # Moli headless browser (https://github.com/lexmount/moli), pinned release
 ARG TARGETARCH
-ARG MOLI_VERSION=1.1.14
-ARG MOLI_AMD64_SHA256=ccc974768cb6c6e8b75ad2fe5b3d283b8985c40e72d8ce0ccf994d6a5ffb6b41
-ARG MOLI_ARM64_SHA256=499027aaf0430c3f22e35ca73b112a9fa7f60cad66fd0df12240320db5ef3198
+ARG MOLI_VERSION=1.1.18
+ARG MOLI_AMD64_SHA256=59715fbdb2b016bb9136e1edb59a2a195c0f98459fd06739e17edc62da6a48b1
+ARG MOLI_ARM64_SHA256=ec57982984245811e2e9ea59a7b45693c01c38ccf403bbe2ea2b1b3bebd482fb
 
 # ca-certificates for HTTPS, libcurl4 for Moli's network transport,
 # libfontconfig1 required by Moli's text layout, base fonts so text does not
@@ -43,7 +43,7 @@ RUN case "$TARGETARCH" in \
         arm64) MOLI_TARGET=aarch64; MOLI_SHA256="$MOLI_ARM64_SHA256" ;; \
         *) echo "unsupported TARGETARCH: $TARGETARCH" >&2; exit 1 ;; \
     esac \
-    && curl -fsSLo /tmp/moli.tar.gz \
+    && curl --fail --connect-timeout 20 --retry 5 --retry-delay 2 --retry-all-errors -Lo /tmp/moli.tar.gz \
         "https://github.com/lexmount/moli/releases/download/v${MOLI_VERSION}/moli-${MOLI_TARGET}-unknown-linux-gnu.tar.gz" \
     && echo "${MOLI_SHA256}  /tmp/moli.tar.gz" | sha256sum -c - \
     && mkdir /tmp/moli-pkg \

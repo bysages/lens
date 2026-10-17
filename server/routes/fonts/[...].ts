@@ -98,12 +98,17 @@ export default defineHandler(async (event) => {
     cacheControl: CACHE_IMMUTABLE,
     maxBytes: MAX_CACHE_ENTRY_BYTES,
     produce: async () => {
-      const response = await fetch(fontUrl, {
-        headers: {
-          Accept: "font/woff2,font/woff,font/ttf,*/*",
-        },
-        signal: AbortSignal.timeout(15000),
-      });
+      let response: Response;
+      try {
+        response = await fetch(fontUrl, {
+          headers: {
+            Accept: "font/woff2,font/woff,font/ttf,*/*",
+          },
+          signal: AbortSignal.timeout(15000),
+        });
+      } catch {
+        throw new HTTPError({ status: 502, message: "Font provider is unavailable" });
+      }
 
       if (!response.ok) {
         throw new HTTPError({
