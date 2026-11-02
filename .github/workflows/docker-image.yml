@@ -53,7 +53,7 @@ jobs:
           fi
 
       - name: Build and push Docker images
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@v7
         with:
           push: ${{ github.event_name != 'pull_request' }}
           cache-from: type=registry,ref=${{ env.IMAGE_NAME }}:cache
