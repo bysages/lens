@@ -1,6 +1,6 @@
 # use the official Node image
 # see all versions at https://hub.docker.com/_/node/tags
-FROM node:24-slim AS build
+FROM node:26-slim AS build
 RUN corepack enable
 WORKDIR /app
 
@@ -19,7 +19,7 @@ ENV NODE_ENV=production
 RUN pnpm run build
 
 # copy production dependencies and source code into application image
-FROM node:24-slim AS production
+FROM node:26-slim AS production
 WORKDIR /app
 
 # Moli headless browser (https://github.com/lexmount/moli), pinned release
